@@ -1,6 +1,6 @@
 {
   "name": "@atc-web/atc-webhook-out",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "private": true,
   "description": "Outbound webhooks: subscriptions with event patterns, fan-out on publish, HMAC-signed deliveries with scheduled retries, secret rotation, delivery history",
   "license": "MIT",
