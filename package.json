@@ -1,6 +1,6 @@
 {
   "name": "@atc-web/atc-webhook-out",
-  "version": "1.14.2",
+  "version": "1.15.0",
   "private": true,
   "description": "Outbound webhooks: subscriptions with event patterns, fan-out on publish, HMAC-signed deliveries with scheduled retries, secret rotation, delivery history",
   "license": "MIT",
@@ -22,7 +22,7 @@
     "typecheck": "tsc -p jsconfig.json"
   },
   "dependencies": {
-    "@atc-web/atc-service-core": "github:alitalipcalikoglu/atc-service-core#v1.14.2",
+    "@atc-web/atc-service-core": "github:alitalipcalikoglu/atc-service-core#v1.15.0",
     "@fastify/rate-limit": "11.2.0",
     "fastify": "5.12.5"
   },
