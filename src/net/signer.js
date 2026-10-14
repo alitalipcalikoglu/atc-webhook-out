@@ -1,4 +1,4 @@
-import { Signer as CoreSigner } from '@atc-web/service-core/http';
+import { Signer as CoreSigner } from '@atc-web/atc-service-core/http';
 
 /**
  * HMAC-SHA256 delivery signing. Header value is `t=<unix seconds>,v1=<hex>[,v1=<hex>]` where

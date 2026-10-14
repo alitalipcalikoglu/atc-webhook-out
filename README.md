@@ -1,4 +1,4 @@
-# webhook-out
+# atc-webhook-out
 
 Outbound webhooks for your platform: partners subscribe to event types, your backends publish events, the service fans each event out to every matching subscriber with an HMAC-signed POST, retries on a schedule, disables endpoints that keep failing, and keeps the full delivery history. The counterpart of Stripe's or GitHub's webhooks inside your own product. HTTP only; the worker runs inside the same process.
 

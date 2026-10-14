@@ -292,7 +292,7 @@ whatever `X-Request-Id` a caller sends, generating its own only when the header 
 not new to this review; it predates it, and matches every other internal-only service on this
 platform.
 
-It also parses an inbound `traceparent` via `@atc-web/service-core`'s `registerRequestContext`,
+It also parses an inbound `traceparent` via `@atc-web/atc-service-core`'s `registerRequestContext`,
 trust-gated on `TRUST_PROXY` (same boundary as `X-Forwarded-*`): trusted, the caller's trace-id is
 continued with a fresh span-id; untrusted or malformed, a fresh trace is started. Both
 `traceId`/`spanId` are logged on every request line. Neither of `webhook-out`'s own outbound

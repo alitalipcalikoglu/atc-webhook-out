@@ -24,7 +24,7 @@ export class SubscriptionService {
   /**
    * @param {object} deps
    * @param {import('../store/subscription-store.js').SubscriptionStore} deps.subscriptions
-   * @param {import('@atc-web/service-core/http').NetGuard} deps.guard
+   * @param {import('@atc-web/atc-service-core/http').NetGuard} deps.guard
    * @param {SecretBox} deps.box
    * @param {{ prevSecretGraceHours: number }} deps.options
    * @param {() => number} [deps.now]

@@ -19,7 +19,7 @@ test('API: probes, auth and roles', async (t) => {
   assert.equal(typeof info.serviceCore, 'string');
   delete info.schemaVersion;
   delete info.serviceCore;
-  assert.deepEqual(info, { service: 'webhook-out', version: pkgVersion, apiVersion: 'v1', capabilities: ['replay', 'rotate', 'test-delivery', 'redeliver'] });
+  assert.deepEqual(info, { service: 'atc-webhook-out', version: pkgVersion, apiVersion: 'v1', capabilities: ['replay', 'rotate', 'test-delivery', 'redeliver'] });
   assert.equal((await app.inject({ url: '/v1/subscriptions' })).statusCode, 401);
   assert.equal((await app.inject({ url: '/v1/subscriptions', headers: bearer(WRITE_KEY) })).statusCode, 403, 'write-only key cannot list');
   assert.equal((await app.inject({ url: '/v1/subscriptions', headers: bearer(PUBLISH_KEY) })).statusCode, 403, 'publish key cannot list');

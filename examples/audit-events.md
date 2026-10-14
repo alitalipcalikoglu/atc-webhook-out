@@ -15,14 +15,14 @@ One event per completed write request, `outcome: "success"` for 2xx, `outcome: "
 
 | Action | Request |
 |---|---|
-| `webhook.subscription.create` | `POST /v1/subscriptions` |
-| `webhook.subscription.update` | `PATCH /v1/subscriptions/:id` |
-| `webhook.subscription.delete` | `DELETE /v1/subscriptions/:id` |
-| `webhook.subscription.rotate` | `POST /v1/subscriptions/:id/rotate` |
-| `webhook.subscription.test` | `POST /v1/subscriptions/:id/test` |
-| `webhook.subscription.replay` | `POST /v1/subscriptions/:id/replay` |
-| `webhook.delivery.redeliver` | `POST /v1/deliveries/:id/redeliver` |
-| `webhook.delivery.cancel` | `POST /v1/deliveries/:id/cancel` |
+| `atc-webhook-out.subscription.create` | `POST /v1/subscriptions` |
+| `atc-webhook-out.subscription.update` | `PATCH /v1/subscriptions/:id` |
+| `atc-webhook-out.subscription.delete` | `DELETE /v1/subscriptions/:id` |
+| `atc-webhook-out.subscription.rotate` | `POST /v1/subscriptions/:id/rotate` |
+| `atc-webhook-out.subscription.test` | `POST /v1/subscriptions/:id/test` |
+| `atc-webhook-out.subscription.replay` | `POST /v1/subscriptions/:id/replay` |
+| `atc-webhook-out.delivery.redeliver` | `POST /v1/deliveries/:id/redeliver` |
+| `atc-webhook-out.delivery.cancel` | `POST /v1/deliveries/:id/cancel` |
 
 ## Event shape
 
@@ -30,7 +30,7 @@ One event per completed write request, `outcome: "success"` for 2xx, `outcome: "
 {
   "id": "0f1a…",
   "at": "2026-09-17T10:00:00.000Z",
-  "action": "webhook.subscription.create",
+  "action": "atc-webhook-out.subscription.create",
   "outcome": "success",
   "actor": { "type": "apikey", "id": "console" },
   "target": { "type": "…", "id": "…" },
@@ -41,4 +41,4 @@ One event per completed write request, `outcome: "success"` for 2xx, `outcome: "
 }
 ```
 
-`meta` carries the request patch or a summary (counts) where useful; secrets never appear in it. For `webhook.subscription.update` custom `headers` are reduced to their names: header values can hold credentials and are not forwarded. Query the audit service by `source=webhook-out`, `actionPrefix=webhook.` or by target to reconstruct what happened to an entity.
+`meta` carries the request patch or a summary (counts) where useful; secrets never appear in it. For `atc-webhook-out.subscription.update` custom `headers` are reduced to their names: header values can hold credentials and are not forwarded. Query the audit service by `source=webhook-out`, `actionPrefix=webhook.` or by target to reconstruct what happened to an entity.

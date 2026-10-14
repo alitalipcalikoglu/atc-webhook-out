@@ -15,7 +15,7 @@ const KILL_TIMEOUT_MS = 150_000;
 module.exports = {
   apps: [
     {
-      name: 'webhook-out',
+      name: 'atc-webhook-out',
       cwd: __dirname,
       script: 'src/index.js',
       node_args: ['--disable-warning=ExperimentalWarning', `--env-file=${path.join(__dirname, '.env')}`],

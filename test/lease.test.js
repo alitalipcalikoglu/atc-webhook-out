@@ -5,7 +5,7 @@ import { EventService } from '../src/domain/event-service.js';
 import { SubscriptionService } from '../src/domain/subscription-service.js';
 import { SecretBox } from '../src/crypto/secret-box.js';
 import { HttpCaller } from '../src/net/http-caller.js';
-import { NetGuard } from '@atc-web/service-core/http';
+import { NetGuard } from '@atc-web/atc-service-core/http';
 import { DeliveryStore } from '../src/store/delivery-store.js';
 import { EventStore } from '../src/store/event-store.js';
 import { HeartbeatStore } from '../src/store/heartbeat-store.js';

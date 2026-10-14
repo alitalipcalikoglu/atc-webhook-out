@@ -1,7 +1,7 @@
-import { CallError, HttpCaller as CoreHttpCaller } from '@atc-web/service-core/http';
+import { CallError, HttpCaller as CoreHttpCaller } from '@atc-web/atc-service-core/http';
 import { Signer } from './signer.js';
 
-/** @typedef {import('@atc-web/service-core/http').NetGuard} NetGuard */
+/** @typedef {import('@atc-web/atc-service-core/http').NetGuard} NetGuard */
 /** @typedef {import('../types.js').CallResult} CallResult */
 
 export { CallError };
@@ -32,7 +32,7 @@ export class HttpCaller {
    * @returns {Promise<CallResult>} 2xx outcome; rejects with {@link CallError} otherwise.
    */
   async call({ url, headers: custom, secrets, body, event, delivery, attempt, subscription }) {
-    /** @type {import('@atc-web/service-core/http').VettedTarget} */
+    /** @type {import('@atc-web/atc-service-core/http').VettedTarget} */
     let vetted;
     try {
       vetted = await this.guard.resolve(url);

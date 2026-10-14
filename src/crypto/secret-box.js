@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { SecretBox as CoreSecretBox } from '@atc-web/service-core/secrets';
+import { SecretBox as CoreSecretBox } from '@atc-web/atc-service-core/secrets';
 
 /**
  * AES-256-GCM sealing of subscriber secrets at rest (core's `SecretBox`), plus this service's own

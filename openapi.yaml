@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: webhook-out
+  title: atc-webhook-out
   version: "1.1.0"
   description: |
     Outbound webhooks: subscriptions with event patterns, fan-out on publish, HMAC-signed
@@ -70,7 +70,7 @@ tags:
 paths:
   /openapi.yaml:
     get:
-      operationId: webhookout.openapi
+      operationId: atc-webhook-out.openapi
       summary: Download the canonical OpenAPI document
       description: Returns this service's repository-root OpenAPI 3.1 document byte-for-byte.
       security: []
@@ -83,7 +83,7 @@ paths:
 
   /health:
     get:
-      operationId: webhookOut.health.get
+      operationId: atc-webhook-out.health.get
       summary: Liveness probe
       tags: [operational]
       x-stack-visibility: public
@@ -105,7 +105,7 @@ paths:
 
   /ready:
     get:
-      operationId: webhookOut.ready.get
+      operationId: atc-webhook-out.ready.get
       summary: Readiness probe
       description: |
         Checks the database and reports the in-process (or last-heartbeat-seen) worker status.
@@ -150,7 +150,7 @@ paths:
 
   /v1/info:
     get:
-      operationId: webhookOut.info.get
+      operationId: atc-webhook-out.info.get
       summary: Service and API contract identification
       tags: [operational]
       x-stack-visibility: public
@@ -184,11 +184,11 @@ paths:
                     description: Current database schema version (PRAGMA user_version).
                   serviceCore:
                     type: string
-                    description: Version of the shared @atc-web/service-core package actually running.
+                    description: Version of the shared @atc-web/atc-service-core package actually running.
 
   /metrics:
     get:
-      operationId: webhookOut.metrics.get
+      operationId: atc-webhook-out.metrics.get
       summary: Prometheus metrics
       description: |
         Authenticated (`read` need) but, unlike every other `/v1/*` route, **not** subject to this
@@ -217,7 +217,7 @@ paths:
 
   /v1/subscriptions:
     post:
-      operationId: webhookOut.subscriptions.create
+      operationId: atc-webhook-out.subscriptions.create
       summary: Create a subscription
       description: |
         Creates a subscription and returns its brand-new signing secret. **The secret is shown
@@ -275,7 +275,7 @@ paths:
           $ref: '#/components/responses/RateLimited'
 
     get:
-      operationId: webhookOut.subscriptions.list
+      operationId: atc-webhook-out.subscriptions.list
       summary: List subscriptions
       tags: [subscriptions]
       x-stack-visibility: authenticated
@@ -332,7 +332,7 @@ paths:
         required: true
         schema: { $ref: '#/components/schemas/SubscriptionId' }
     get:
-      operationId: webhookOut.subscriptions.get
+      operationId: atc-webhook-out.subscriptions.get
       summary: Get a subscription
       tags: [subscriptions]
       x-stack-visibility: authenticated
@@ -361,7 +361,7 @@ paths:
           $ref: '#/components/responses/RateLimited'
 
     patch:
-      operationId: webhookOut.subscriptions.patch
+      operationId: atc-webhook-out.subscriptions.patch
       summary: Update a subscription
       description: |
         Partial update; at least one field is required. `enabled: true` resumes the subscription
@@ -424,7 +424,7 @@ paths:
           $ref: '#/components/responses/RateLimited'
 
     delete:
-      operationId: webhookOut.subscriptions.delete
+      operationId: atc-webhook-out.subscriptions.delete
       summary: Delete a subscription
       description: Also deletes, by database cascade, every delivery queued or recorded for it.
       tags: [subscriptions]
@@ -448,7 +448,7 @@ paths:
 
   /v1/subscriptions/{id}/rotate:
     post:
-      operationId: webhookOut.subscriptions.rotate
+      operationId: atc-webhook-out.subscriptions.rotate
       summary: Rotate a subscription's signing secret
       description: |
         Issues a brand-new signing secret immediately. **The plaintext secret is returned only in
@@ -495,7 +495,7 @@ paths:
 
   /v1/subscriptions/{id}/test:
     post:
-      operationId: webhookOut.subscriptions.test
+      operationId: atc-webhook-out.subscriptions.test
       summary: Send a test delivery
       description: |
         Queues one synthetic `webhook.test` event for this subscription only, regardless of its
@@ -536,7 +536,7 @@ paths:
 
   /v1/subscriptions/{id}/replay:
     post:
-      operationId: webhookOut.subscriptions.replay
+      operationId: atc-webhook-out.subscriptions.replay
       summary: Re-queue events in a time window for this subscription
       description: |
         Re-queues every already-published, non-test event in `[from, to)` that matches this
@@ -609,7 +609,7 @@ paths:
 
   /v1/subscriptions/{id}/deliveries:
     get:
-      operationId: webhookOut.subscriptions.listDeliveries
+      operationId: atc-webhook-out.subscriptions.listDeliveries
       summary: List a subscription's deliveries
       tags: [subscriptions]
       x-stack-visibility: authenticated
@@ -660,7 +660,7 @@ paths:
 
   /v1/events:
     post:
-      operationId: webhookOut.events.publish
+      operationId: atc-webhook-out.events.publish
       summary: Publish an event
       description: |
         Inserts the event and fans it out to a `deliveries` row for every currently-active
@@ -746,7 +746,7 @@ paths:
           $ref: '#/components/responses/RateLimited'
 
     get:
-      operationId: webhookOut.events.list
+      operationId: atc-webhook-out.events.list
       summary: List published events
       description: Newest first; test events (from `test`/`replay`-adjacent synthetic publishes) are excluded.
       tags: [events]
@@ -791,7 +791,7 @@ paths:
 
   /v1/events/{id}:
     get:
-      operationId: webhookOut.events.get
+      operationId: atc-webhook-out.events.get
       summary: Get an event and its deliveries
       tags: [events]
       x-stack-visibility: authenticated
@@ -831,7 +831,7 @@ paths:
 
   /v1/event-types:
     get:
-      operationId: webhookOut.eventTypes.list
+      operationId: atc-webhook-out.eventTypes.list
       summary: List distinct published event types
       description: Aggregated counts and last-seen time per type, over all non-test events ever published.
       tags: [events]
@@ -866,7 +866,7 @@ paths:
 
   /v1/deliveries:
     get:
-      operationId: webhookOut.deliveries.list
+      operationId: atc-webhook-out.deliveries.list
       summary: List deliveries
       tags: [deliveries]
       x-stack-visibility: authenticated
@@ -908,7 +908,7 @@ paths:
 
   /v1/deliveries/{id}:
     get:
-      operationId: webhookOut.deliveries.get
+      operationId: atc-webhook-out.deliveries.get
       summary: Get a delivery
       tags: [deliveries]
       x-stack-visibility: authenticated
@@ -943,7 +943,7 @@ paths:
 
   /v1/deliveries/{id}/redeliver:
     post:
-      operationId: webhookOut.deliveries.redeliver
+      operationId: atc-webhook-out.deliveries.redeliver
       summary: Create a fresh delivery of the same event
       description: |
         Queues a brand-new delivery (new delivery id, attempt counter reset) of the same event to
@@ -983,7 +983,7 @@ paths:
 
   /v1/deliveries/{id}/cancel:
     post:
-      operationId: webhookOut.deliveries.cancel
+      operationId: atc-webhook-out.deliveries.cancel
       summary: Cancel a queued delivery
       description: Only `pending` and `retrying` deliveries can be cancelled; a `running` attempt cannot be interrupted.
       tags: [deliveries]
@@ -1021,7 +1021,7 @@ paths:
 
   /v1/stats:
     get:
-      operationId: webhookOut.stats.get
+      operationId: atc-webhook-out.stats.get
       summary: Aggregate subscription/event/delivery/worker statistics
       description: '`last24h`/`recentFailures`/`avgDurationMs24h` are computed over a fixed trailing 24-hour window.'
       tags: [stats]

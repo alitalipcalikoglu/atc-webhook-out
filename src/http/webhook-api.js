@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
-import { AuditClient } from '@atc-web/service-core/audit';
-import { createErrorHandler, jsonParser, registerInfo, registerOpenApi, registerProbes, registerRequestContext, requestOptions } from '@atc-web/service-core/fastify';
+import { AuditClient } from '@atc-web/atc-service-core/audit';
+import { createErrorHandler, jsonParser, registerInfo, registerOpenApi, registerProbes, registerRequestContext, requestOptions } from '@atc-web/atc-service-core/fastify';
 import { WebhookError } from '../domain/errors.js';
 import { DeliveryStore } from '../store/delivery-store.js';
 import { ApiKeyAuth } from './api-key-auth.js';
@@ -48,7 +48,7 @@ export class WebhookApi {
    * @param {import('../db.js').Database} deps.db
    * @param {string} deps.version
    * @param {import('../types.js').Logger} [deps.logger]
-   * @param {import('@atc-web/service-core/audit').AuditClient} [deps.audit]
+   * @param {import('@atc-web/atc-service-core/audit').AuditClient} [deps.audit]
    * @param {() => number} [deps.now]
    */
   constructor({ config, audit, subscriptionService, eventService, subscriptions, events, deliveries, presence, worker, db, version, logger, now = Date.now }) {
@@ -101,7 +101,7 @@ export class WebhookApi {
     registerProbes(app, () => this.db.ping(), { cacheMs: WebhookApi.READY_CACHE_MS, extra: () => ({ worker: this.workerStatus() }) });
     registerOpenApi(app, new URL('../../openapi.yaml', import.meta.url));
     registerInfo(app, {
-      service: 'webhook-out',
+      service: 'atc-webhook-out',
       version: this.version,
       capabilities: ['replay', 'rotate', 'test-delivery', 'redeliver'],
       schemaVersion: this.db.schemaVersion,
@@ -137,7 +137,7 @@ export class WebhookApi {
     };
 
     // ---- subscriptions
-    api.post('/subscriptions', { config: { audit: AuditClient.route('webhook.subscription.create', (_r, b) => ({ type: 'subscription', id: b.subscription.id })) }, ...write, schema: { body: Schemas.createSubscription } }, async (request, reply) => {
+    api.post('/subscriptions', { config: { audit: AuditClient.route('atc-webhook-out.subscription.create', (_r, b) => ({ type: 'subscription', id: b.subscription.id })) }, ...write, schema: { body: Schemas.createSubscription } }, async (request, reply) => {
       const { row, secret } = this.subs.create(/** @type {any} */ (request.body), actor(request));
       reply.header('location', `/v1/subscriptions/${row.id}`);
       return reply.code(201).send({ subscription: Views.subscription(row), secret });
@@ -148,20 +148,20 @@ export class WebhookApi {
       return { items: items.map(Views.subscription), nextCursor };
     });
     api.get('/subscriptions/:id', { ...read, schema: { params: Schemas.subParams } }, async (request) => ({ subscription: Views.subscription(this.subs.get(pid(request))) }));
-    api.patch('/subscriptions/:id', { config: { audit: AuditClient.route('webhook.subscription.update', (r) => ({ type: 'subscription', id: /** @type {any} */ (r.params).id }), (r) => ({ patch: WebhookApi.auditPatch(/** @type {any} */ (r.body)) })) }, ...write, schema: { params: Schemas.subParams, body: Schemas.patchSubscription } }, async (request) => ({ subscription: Views.subscription(this.subs.update(pid(request), /** @type {any} */ (request.body))) }));
-    api.delete('/subscriptions/:id', { config: { audit: AuditClient.route('webhook.subscription.delete', (r) => ({ type: 'subscription', id: /** @type {any} */ (r.params).id })) }, ...write, schema: { params: Schemas.subParams } }, async (request, reply) => {
+    api.patch('/subscriptions/:id', { config: { audit: AuditClient.route('atc-webhook-out.subscription.update', (r) => ({ type: 'subscription', id: /** @type {any} */ (r.params).id }), (r) => ({ patch: WebhookApi.auditPatch(/** @type {any} */ (r.body)) })) }, ...write, schema: { params: Schemas.subParams, body: Schemas.patchSubscription } }, async (request) => ({ subscription: Views.subscription(this.subs.update(pid(request), /** @type {any} */ (request.body))) }));
+    api.delete('/subscriptions/:id', { config: { audit: AuditClient.route('atc-webhook-out.subscription.delete', (r) => ({ type: 'subscription', id: /** @type {any} */ (r.params).id })) }, ...write, schema: { params: Schemas.subParams } }, async (request, reply) => {
       this.subs.remove(pid(request));
       return reply.code(204).send();
     });
-    api.post('/subscriptions/:id/rotate', { config: { audit: AuditClient.route('webhook.subscription.rotate', (r) => ({ type: 'subscription', id: /** @type {any} */ (r.params).id })) }, ...write, schema: { params: Schemas.subParams } }, async (request) => {
+    api.post('/subscriptions/:id/rotate', { config: { audit: AuditClient.route('atc-webhook-out.subscription.rotate', (r) => ({ type: 'subscription', id: /** @type {any} */ (r.params).id })) }, ...write, schema: { params: Schemas.subParams } }, async (request) => {
       const { row, secret, previousValidUntil } = this.subs.rotate(pid(request));
       return { subscription: Views.subscription(row), secret, previousValidUntil };
     });
-    api.post('/subscriptions/:id/test', { config: { audit: AuditClient.route('webhook.subscription.test', (r) => ({ type: 'subscription', id: /** @type {any} */ (r.params).id })) }, ...write, schema: { params: Schemas.subParams } }, async (request, reply) => {
+    api.post('/subscriptions/:id/test', { config: { audit: AuditClient.route('atc-webhook-out.subscription.test', (r) => ({ type: 'subscription', id: /** @type {any} */ (r.params).id })) }, ...write, schema: { params: Schemas.subParams } }, async (request, reply) => {
       const { event, delivery } = this.evs.test(pid(request), actor(request));
       return reply.code(202).send({ event: Views.event(event), delivery: Views.delivery(delivery) });
     });
-    api.post('/subscriptions/:id/replay', { config: { audit: AuditClient.route('webhook.subscription.replay', (r) => ({ type: 'subscription', id: /** @type {any} */ (r.params).id }), (r, b) => ({ ...(/** @type {object} */ (r.body ?? {})), queued: b?.queued })) }, ...write, schema: { params: Schemas.subParams, body: Schemas.replay } }, async (request, reply) => {
+    api.post('/subscriptions/:id/replay', { config: { audit: AuditClient.route('atc-webhook-out.subscription.replay', (r) => ({ type: 'subscription', id: /** @type {any} */ (r.params).id }), (r, b) => ({ ...(/** @type {object} */ (r.body ?? {})), queued: b?.queued })) }, ...write, schema: { params: Schemas.subParams, body: Schemas.replay } }, async (request, reply) => {
       const b = /** @type {{ from: string, to?: string }} */ (request.body);
       const out = this.evs.replay(pid(request), { from: /** @type {number} */ (parseIso(b.from, 'from')), to: parseIso(b.to, 'to') });
       return reply.code(202).send(out);
@@ -192,8 +192,8 @@ export class WebhookApi {
     // ---- deliveries
     api.get('/deliveries', { ...read, schema: { querystring: Schemas.deliveriesQuery } }, async (request) => this.#deliveries(query(request)));
     api.get('/deliveries/:id', { ...read, schema: { params: Schemas.idParams } }, async (request) => ({ delivery: Views.delivery(this.evs.delivery(nid(request))) }));
-    api.post('/deliveries/:id/redeliver', { config: { audit: AuditClient.route('webhook.delivery.redeliver', (r) => ({ type: 'delivery', id: /** @type {any} */ (r.params).id })) }, ...write, schema: { params: Schemas.idParams } }, async (request, reply) => reply.code(202).send({ delivery: Views.delivery(this.evs.redeliver(nid(request))) }));
-    api.post('/deliveries/:id/cancel', { config: { audit: AuditClient.route('webhook.delivery.cancel', (r) => ({ type: 'delivery', id: /** @type {any} */ (r.params).id })) }, ...write, schema: { params: Schemas.idParams } }, async (request) => ({ delivery: Views.delivery(this.evs.cancel(nid(request))) }));
+    api.post('/deliveries/:id/redeliver', { config: { audit: AuditClient.route('atc-webhook-out.delivery.redeliver', (r) => ({ type: 'delivery', id: /** @type {any} */ (r.params).id })) }, ...write, schema: { params: Schemas.idParams } }, async (request, reply) => reply.code(202).send({ delivery: Views.delivery(this.evs.redeliver(nid(request))) }));
+    api.post('/deliveries/:id/cancel', { config: { audit: AuditClient.route('atc-webhook-out.delivery.cancel', (r) => ({ type: 'delivery', id: /** @type {any} */ (r.params).id })) }, ...write, schema: { params: Schemas.idParams } }, async (request) => ({ delivery: Views.delivery(this.evs.cancel(nid(request))) }));
 
     api.get('/stats', read, async () => this.#stats());
   }
