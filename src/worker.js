@@ -225,7 +225,16 @@ export class Worker {
       const failures = status === 'succeeded' ? 0 : sub.consecutive_failures + 1;
       const disable = status === 'failed' && sub.status === 'active' && failures >= this.options.disableAfterFailures;
       this.subscriptions.recordOutcome(sub.id, { at: now, status, consecutiveFailures: failures, subscriptionStatus: disable ? 'disabled' : sub.status });
-      if (disable) { this.counters.disabled++; this.log.error({ subscription: sub.id, name: sub.name, failures }, 'subscription disabled after consecutive failed deliveries'); }
+      if (disable) {
+        this.counters.disabled++;
+        this.log.error({ subscription: sub.id, name: sub.name, failures }, 'subscription disabled after consecutive failed deliveries');
+        // Tell the operator through the platform's own event channel (an `ops.*` subscription, such as the alert hub's, picks it up).
+        try {
+          this.events.publish({ type: 'ops.webhook.subscription_disabled', data: { subscription: sub.name, id: sub.id, failures, url: sub.url }, idempotencyKey: `disabled:${sub.id}:${now}` }, 'atc-webhook-out');
+        } catch (err) {
+          this.log.warn({ err: err instanceof Error ? err.message : String(err) }, 'could not publish the subscription_disabled event');
+        }
+      }
     }
     if (status === 'succeeded') this.log.info(meta, 'delivered');
     else this.log.error({ ...meta, error: d.error }, 'delivery failed');

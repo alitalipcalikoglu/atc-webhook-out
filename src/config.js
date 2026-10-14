@@ -41,6 +41,7 @@ export class Config {
     this.subscriptionConcurrencyMax = v.subscriptionConcurrencyMax;
     this.pollMs = v.pollMs;
     this.disableAfterFailures = v.disableAfterFailures;
+    this.subscriptionSeeds = Object.freeze(v.subscriptionSeeds.map((x) => Object.freeze({ ...x, events: Object.freeze([...x.events]) })));
     this.eventRetentionDays = v.eventRetentionDays;
     this.maxEventBytes = v.maxEventBytes;
     this.prevSecretGraceHours = v.prevSecretGraceHours;
@@ -108,6 +109,7 @@ export class Config {
       subscriptionConcurrencyMax: r.integer('SUBSCRIPTION_CONCURRENCY_MAX', 4, { min: 1 }),
       pollMs: r.integer('POLL_MS', 1_000, { min: 100, max: 60_000 }),
       disableAfterFailures: r.integer('DISABLE_AFTER_FAILURES', 10, { min: 1 }),
+      subscriptionSeeds: Config.#parseSeeds(r.optional('SUBSCRIPTION_SEEDS')),
       eventRetentionDays: r.integer('EVENT_RETENTION_DAYS', 30, { min: 1 }),
       maxEventBytes: r.integer('MAX_EVENT_BYTES', 65_536, { min: 256 }),
       prevSecretGraceHours: r.integer('PREV_SECRET_GRACE_HOURS', 24, { min: 0, max: 720 }),
@@ -125,6 +127,27 @@ export class Config {
   static #parseApiKeys(raw) {
     return parseApiKeys(raw, 'WEBHOOK_API_KEYS', { roles: ['read', 'write', 'readwrite', 'publish'], minSecretLength: Config.MIN_SECRET_LENGTH, roleErrorMessage: () => 'must be read, write, readwrite or publish' })
       .map(({ id, secret, role }) => ({ id, secret, role: /** @type {KeyRole} */ (role) }));
+  }
+
+  /**
+   * `name|url|event+event|secret`, comma separated: subscriptions created at start when missing, with
+   * a signing secret the receiver already knows (the platform's own alert hub). Existing
+   * subscriptions are never touched.
+   * @param {string} raw @returns {{ name: string, url: string, events: string[], secret: string }[]}
+   */
+  static #parseSeeds(raw) {
+    /** @type {{ name: string, url: string, events: string[], secret: string }[]} */
+    const out = [];
+    for (const entry of raw.split(',').map((x) => x.trim()).filter(Boolean)) {
+      const [name, url, events, secret, ...rest] = entry.split('|');
+      if (rest.length || !name || !url || !events || !secret) throw new ConfigError(`SUBSCRIPTION_SEEDS entry "${entry.slice(0, 40)}…" must be name|url|event+event|secret`);
+      if (!/^[a-z0-9]+([.\-_][a-z0-9]+)*$/.test(name)) throw new ConfigError(`SUBSCRIPTION_SEEDS name "${name}" is not a valid subscription name`);
+      if (!/^https?:\/\/[^\s]+$/.test(url)) throw new ConfigError(`SUBSCRIPTION_SEEDS "${name}": url must be absolute http(s)`);
+      if (secret.length < 32) throw new ConfigError(`SUBSCRIPTION_SEEDS "${name}": secret must be at least 32 characters`);
+      if (out.some((x) => x.name === name)) throw new ConfigError(`SUBSCRIPTION_SEEDS lists "${name}" twice`);
+      out.push({ name, url, events: events.split('+').filter(Boolean), secret });
+    }
+    return out;
   }
 
   /**

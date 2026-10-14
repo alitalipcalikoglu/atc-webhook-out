@@ -72,7 +72,7 @@ test('Worker: dead deliveries count against the subscription; disabled after the
   const rx = await receiver((req) => ({ status: req.url === '/gone' ? 404 : 500 }));
   t.after(rx.close);
   const { subscriptionService: s, eventService: ev, worker, deliveries, subscriptions, clock } = testService({ DISABLE_AFTER_FAILURES: '2', RETRY_SCHEDULE_SEC: '1' });
-  const { row: sub } = s.create({ name: 'a', url: `${rx.url}/gone`, events: ['*'] }, 'console');
+  const { row: sub } = s.create({ name: 'a', url: `${rx.url}/gone`, events: ['a', 'b', 'c', 'd'] }, 'console');
   const { deliveries: [d1] } = ev.publish({ type: 'a', data: {} }, 'x');
   await worker.tick();
   assert.deepEqual([deliveries.get(d1.id)?.status, deliveries.get(d1.id)?.attempt], ['failed', 1], '404 is not retried');
@@ -152,4 +152,31 @@ test('Worker: paused subscriptions queue; timeouts retry; recovery after a crash
   await worker.tick();
   assert.equal(events.get('evt_0000000000000001'), undefined, 'purged now that nothing is still queued for it');
   assert.equal(deliveries.list({ eventId: 'evt_0000000000000001' }, { limit: 5 }).length, 0);
+});
+
+test('Worker: a subscription that gets disabled publishes ops.webhook.subscription_disabled to ops.* subscribers', async (t) => {
+  const rx = await receiver((req) => ({ status: req.url === '/gone' ? 404 : 200 }));
+  t.after(rx.close);
+  const { subscriptionService: s, eventService: ev, worker, events } = testService({ DISABLE_AFTER_FAILURES: '1', RETRY_SCHEDULE_SEC: '1' });
+  s.create({ name: 'flaky', url: `${rx.url}/gone`, events: ['order.*'] }, 'console');
+  s.create({ name: 'alert-hub', url: `${rx.url}/ok`, events: ['ops.*'] }, 'console');
+  ev.publish({ type: 'order.created', data: {} }, 'x');
+  await worker.tick();
+  await worker.tick();
+  const opsEvent = events.list({}, { limit: 10 }).find((e) => e.type === 'ops.webhook.subscription_disabled');
+  assert.ok(opsEvent, 'the disable is announced as an event');
+  assert.deepEqual([JSON.parse(opsEvent.data).subscription, JSON.parse(opsEvent.data).failures, opsEvent.source], ['flaky', 1, 'atc-webhook-out']);
+  assert.ok(rx.received.some((r) => r.url === '/ok'), 'and delivered to the ops subscriber');
+});
+
+test('seed: subscriptions from SUBSCRIPTION_SEEDS are created once with the given secret and never changed', () => {
+  const secret = 's'.repeat(40);
+  const { subscriptionService: s, subscriptions, box } = testService({ DB_PATH: ':memory:' });
+  const seeds = [{ name: 'alert-hub', url: 'http://127.0.0.1:3018/v1/hooks/webhook-out', events: ['ops.*'], secret }];
+  assert.deepEqual(s.seed(seeds), ['alert-hub']);
+  const row = subscriptions.byName('alert-hub');
+  assert.equal(box.open(/** @type {string} */ (row?.secret_enc)), secret);
+  s.update(/** @type {string} */ (row?.id), { description: 'edited' });
+  assert.deepEqual(s.seed(seeds), []);
+  assert.equal(subscriptions.byName('alert-hub')?.description, 'edited');
 });

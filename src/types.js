@@ -33,6 +33,7 @@
  * @property {number} workerConcurrency
  * @property {number} subscriptionConcurrencyMax  Cap on one unordered subscription's in-flight deliveries.
  * @property {number} pollMs
+ * @property {{ name: string, url: string, events: string[], secret: string }[]} subscriptionSeeds
  * @property {number} disableAfterFailures  Consecutive dead deliveries that disable a subscription.
  * @property {number} eventRetentionDays
  * @property {number} maxEventBytes

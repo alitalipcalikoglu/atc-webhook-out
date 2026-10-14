@@ -88,6 +88,8 @@ export class Application {
     const steps = [];
 
     if (runsApi) {
+      const seeded = this.subscriptionService.seed(config.subscriptionSeeds);
+      if (seeded.length) log.info({ subscriptions: seeded }, 'subscriptions created from SUBSCRIPTION_SEEDS');
       const api = new WebhookApi({ config, audit: this.audit, subscriptionService: this.subscriptionService, eventService: this.eventService, subscriptions: this.subscriptions, events: this.events, deliveries: this.deliveries, presence: this.presence, worker: this.worker, db: this.db, version: this.version });
       const app = await api.build();
       this.app = app;

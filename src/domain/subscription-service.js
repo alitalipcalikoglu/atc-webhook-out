@@ -40,12 +40,13 @@ export class SubscriptionService {
   /**
    * @param {SubscriptionInput} input
    * @param {string} actor
+   * @param {string} [secretOverride] A secret chosen by the operator (seeded subscriptions); otherwise generated.
    * @returns {{ row: SubscriptionRow, secret: string }} The secret is shown once.
    */
-  create(input, actor) {
+  create(input, actor, secretOverride) {
     if (this.subscriptions.byName(input.name)) throw new WebhookError('SUBSCRIPTION_EXISTS', `subscription "${input.name}" already exists`);
     const now = this.now();
-    const secret = SecretBox.generate();
+    const secret = secretOverride ?? SecretBox.generate();
     /** @type {SubscriptionRow} */
     const row = {
       id: `sub_${randomBytes(8).toString('hex')}`,
@@ -67,6 +68,21 @@ export class SubscriptionService {
       ordered: input.ordered ? 1 : 0,
     };
     return { row: this.subscriptions.insert(row), secret };
+  }
+
+  /**
+   * Create the seeded subscriptions that do not exist yet; never touches an existing one.
+   * @param {readonly { name: string, url: string, events: readonly string[], secret: string }[]} seeds
+   * @returns {string[]} names created
+   */
+  seed(seeds) {
+    const created = [];
+    for (const x of seeds) {
+      if (this.subscriptions.byName(x.name)) continue;
+      this.create({ name: x.name, description: 'created from SUBSCRIPTION_SEEDS', url: x.url, events: [...x.events] }, 'SUBSCRIPTION_SEEDS', x.secret);
+      created.push(x.name);
+    }
+    return created;
   }
 
   /** @param {string} id */

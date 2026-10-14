@@ -49,3 +49,12 @@ test('Config: externalCallCeilingMs < drainMs < forceExitMs across the whole DEL
     assert.ok(c.externalCallCeilingMs < c.drainMs && c.drainMs < c.forceExitMs);
   }
 });
+
+test('Config: SUBSCRIPTION_SEEDS parses name|url|event+event|secret and rejects bad entries', async () => {
+  const { Config, ConfigError } = await import('../src/config.js');
+  const { testEnv } = await import('./helpers.js');
+  const ok = `hub|http://127.0.0.1:3018/v1/hooks/webhook-out|ops.*+order.*|${'s'.repeat(40)}`;
+  const c = Config.fromEnv(testEnv({ SUBSCRIPTION_SEEDS: ok }));
+  assert.deepEqual([c.subscriptionSeeds[0].name, c.subscriptionSeeds[0].events], ['hub', ['ops.*', 'order.*']]);
+  for (const bad of ['hub|http://x|ops.*', `Hub|http://x|ops.*|${'s'.repeat(40)}`, 'hub|ftp://x|ops.*|' + 's'.repeat(40), 'hub|http://x|ops.*|short']) assert.throws(() => Config.fromEnv(testEnv({ SUBSCRIPTION_SEEDS: bad })), ConfigError, bad);
+});

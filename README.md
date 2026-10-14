@@ -150,6 +150,10 @@ Class-based; dependencies are injected through constructors, `src/application.js
 - Encryption of event payloads at rest: sign, do not encrypt; keep secrets out of `data`.
 - True multi-host distribution: every process (API or worker, however many) must reach the same `DB_PATH` file on one host — there is no network-shared counter store. Splitting across hosts still means splitting subscribers across separate `atc-webhook-out` instances, each with its own database.
 
+## Operational events
+
+When a subscription is disabled after `DISABLE_AFTER_FAILURES` dead deliveries, the service publishes `ops.webhook.subscription_disabled` (`{ subscription, id, failures, url }`, source `atc-webhook-out`) through its own channel, so an `ops.*` subscriber (the stack's alert hub in atc-status) can tell an operator. `SUBSCRIPTION_SEEDS` (`name|url|event+event|secret`) creates such a subscription at start with a secret the receiver already knows; existing subscriptions are never changed. Platform event types are listed in the stack's `docs/EVENTS.md`.
+
 ## Audit events
 
 With `AUDIT_URL` and `AUDIT_API_KEY` set, every completed write request is forwarded to the audit service as one event (`success`, or `denied` on 403) with the calling key as actor, the affected entity as target, client IP, user agent and request id. Events are buffered and sent in batches; the audit service being down never fails a request. Actions: see [examples/audit-events.md](examples/audit-events.md).
