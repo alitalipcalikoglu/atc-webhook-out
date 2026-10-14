@@ -8,6 +8,7 @@ import { DeliveryStore } from '../store/delivery-store.js';
 import { ApiKeyAuth } from './api-key-auth.js';
 import { Schemas } from './schemas.js';
 import { Views } from './views.js';
+import { AuditMetrics } from '../audit-metrics.js';
 
 /** @typedef {import('../config.js').Config} Config */
 /** @typedef {import('fastify').FastifyInstance} FastifyInstance */
@@ -265,6 +266,7 @@ export class WebhookApi {
         '# HELP webhook_worker_up 1 if a worker process is currently alive (this process itself, or another one reporting through worker_heartbeat), else 0.',
         '# TYPE webhook_worker_up gauge',
         `webhook_worker_up ${this.workerStatus() === 'running' ? 1 : 0}`,
+        ...AuditMetrics.lines(this.audit),
         '# HELP webhook_process_uptime_seconds Process uptime.',
         '# TYPE webhook_process_uptime_seconds gauge',
         `webhook_process_uptime_seconds ${process.uptime().toFixed(0)}`,

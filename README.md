@@ -200,6 +200,8 @@ database-backed counts (subscriptions, events, deliveries by status) with in-mem
 reset on restart (delivery outcomes since start, retries, disables). See
 [docs/READINESS.md](docs/READINESS.md) for the full contract.
 
+Audit forwarding is observable too: `audit_forward_enabled`, `audit_forward_events_total{result="recorded|sent|dropped|failed"}` and `audit_forward_pending`. A rising `dropped`, or a `pending` that does not drain, means audit events are being lost or delayed; alert on it.
+
 ## Backup / restore
 
 The state that matters is the SQLite file at `DB_PATH` plus, out of band, `SECRETS_KEY` (without
