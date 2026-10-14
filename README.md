@@ -24,7 +24,7 @@ Production with Docker (mount the database directory):
 
 ```bash
 docker build -t atc-webhook-out .
-docker run -p 3009:3009 -v webhook-out-data:/data --env-file .env atc-webhook-out
+docker run -p 3009:3009 -v atc-webhook-out-data:/data --env-file .env atc-webhook-out
 ```
 
 Tests and type check:
@@ -148,7 +148,7 @@ Class-based; dependencies are injected through constructors, `src/application.js
 - Ordered delivery guarantees: put a sequence in `data`.
 - Subscriber self-service (partners creating their own subscriptions): front this API with your own portal and a `write` key.
 - Encryption of event payloads at rest: sign, do not encrypt; keep secrets out of `data`.
-- True multi-host distribution: every process (API or worker, however many) must reach the same `DB_PATH` file on one host — there is no network-shared counter store. Splitting across hosts still means splitting subscribers across separate `webhook-out` instances, each with its own database.
+- True multi-host distribution: every process (API or worker, however many) must reach the same `DB_PATH` file on one host — there is no network-shared counter store. Splitting across hosts still means splitting subscribers across separate `atc-webhook-out` instances, each with its own database.
 
 ## Audit events
 
@@ -180,7 +180,7 @@ delivery as a failed attempt — following the normal retry schedule — and the
 the original worker cannot overwrite that outcome if it later finishes the call it no longer owns.
 
 This makes **multiple worker processes against the same `DB_PATH` a supported topology**: the
-commented-out split `webhook-out-worker` app in `ecosystem.config.cjs` can run with `instances` >
+commented-out split `atc-webhook-out-worker` app in `ecosystem.config.cjs` can run with `instances` >
 1. Claiming is atomic across processes (`BEGIN IMMEDIATE` around the whole read-decide-write),
 proven with real cross-connection concurrency in `test/lease-concurrency.test.js`. Per-subscription
 ordering and the concurrency cap are enforced by that same atomic claim, so they hold across however
@@ -193,7 +193,7 @@ the full contract.
 Every request gets a `reqId`, either generated or accepted unconditionally from an inbound
 `X-Request-Id` (`requestIdHeader: 'x-request-id'`, matching every other internal-only service on
 this platform), plus `traceId`/`spanId` from an inbound `traceparent`, trusted only when
-`TRUST_PROXY=true` (see [OBSERVABILITY.md](../stack/docs/OBSERVABILITY.md)). Neither of this
+`TRUST_PROXY=true` (see [OBSERVABILITY.md](../atc-stack/docs/OBSERVABILITY.md)). Neither of this
 service's own outbound calls (subscriber deliveries — external, operator-configured; audit batches
 — deliberately unwired) forwards a request id or trace context onward. `GET /metrics` mixes
 database-backed counts (subscriptions, events, deliveries by status) with in-memory counters that
@@ -204,7 +204,7 @@ reset on restart (delivery outcomes since start, retries, disables). See
 
 The state that matters is the SQLite file at `DB_PATH` plus, out of band, `SECRETS_KEY` (without
 it, stored subscriber secrets are unreadable) and `WEBHOOK_API_KEYS` — neither lives in the
-database. Use `stack backup`/`stack restore` from the workspace root (see `stack/docs/UPGRADE.md`)
+database. Use `stack backup`/`stack restore` from the workspace root (see `atc-stack/docs/UPGRADE.md`)
 to snapshot and restore the database consistently alongside the rest of the stack — it uses
 `VACUUM INTO` against the live file, so a consistent copy does not require stopping the process or
 risk missing data still in the WAL file. `SECRETS_KEY` and `WEBHOOK_API_KEYS` are not part of that

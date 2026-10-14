@@ -22,7 +22,7 @@ import { Worker } from './worker.js';
  * Composition root: wires configuration, storage, domain, outbound calls, HTTP and the worker,
  * and owns the process lifecycle.
  *
- * `role` (Stage 6) picks which of the two runtimes this process actually runs — see `scheduler`'s
+ * `role` (Stage 6) picks which of the two runtimes this process actually runs — see `atc-scheduler`'s
  * `Application` module doc for the identical reasoning (`'combined'` default, `'api'`: HTTP only
  * no `Worker`, `'worker'`: `Worker` only no HTTP listener at all).
  */
@@ -97,7 +97,7 @@ export class Application {
 
     // Shutdown order (Stage 6 fix): stop claiming new work first, then stop HTTP intake, THEN
     // drain whatever the worker already had in flight, THEN flush audit, THEN close the DB. Audit
-    // used to flush before the worker drained — see `scheduler`'s `application.js` for the full
+    // used to flush before the worker drained — see `atc-scheduler`'s `application.js` for the full
     // reasoning (identical fix, same bug class). `worker.stop()` now has its own bounded drain
     // wait (`drainMs` above, Stage 6.1) strictly shorter than `forceExitMs` below, so a stuck drain
     // logs and moves on to the remaining steps before the whole process gets force-killed.

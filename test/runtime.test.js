@@ -8,7 +8,7 @@ const json = (/** @type {import('light-my-request').Response} */ r) => JSON.pars
 
 /**
  * `Application.start()` end to end for each role, without going through `Lifecycle`'s `shutdown()`
- * (which calls `process.exit()` on success). See `scheduler`'s identical test for why.
+ * (which calls `process.exit()` on success). See `atc-scheduler`'s identical test for why.
  */
 async function cleanup(/** @type {Application} */ app) {
   await app.worker?.stop();

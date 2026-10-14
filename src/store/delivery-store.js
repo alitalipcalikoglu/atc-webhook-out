@@ -15,7 +15,7 @@ import { randomUUID } from 'node:crypto';
  * ever affect the row it thinks it owns: a worker that claimed a delivery, then hung long enough
  * for another process to reclaim it (see {@link reclaimExpired}), can no longer overwrite that row
  * when it eventually returns — its `owner_token` no longer matches, and by then `status` isn't
- * `'running'` under it either. See `scheduler`'s `store/run-store.js` for the identical design
+ * `'running'` under it either. See `atc-scheduler`'s `store/run-store.js` for the identical design
  * (kept independent, not shared, since the two services' state machines and columns differ).
  */
 export class DeliveryStore {
@@ -154,7 +154,7 @@ export class DeliveryStore {
   /**
    * Atomically find every delivery whose lease has expired (or predates leases) and, in the SAME
    * transaction, finish each one via `decide(delivery)` — a pure function computing the same shape
-   * {@link finish} takes. See `scheduler`'s `run-store.js#reclaimExpired` for why running the read
+   * {@link finish} takes. See `atc-scheduler`'s `run-store.js#reclaimExpired` for why running the read
    * and every write inside one transaction is what makes this race-free against a concurrent
    * {@link heartbeat}.
    * @param {number} now

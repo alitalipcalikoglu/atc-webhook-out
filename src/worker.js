@@ -12,7 +12,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
  * expired (a previous process's crash, or this process's own hung call) and purges events past
  * retention.
  *
- * Lease ownership: see `scheduler`'s `worker.js` module doc — the design is identical (claim hands
+ * Lease ownership: see `atc-scheduler`'s `worker.js` module doc — the design is identical (claim hands
  * out an `owner_token` + `lease_until`, a heartbeat renews it while a call is in flight, `finish`
  * is fenced on that same token), kept as an independent copy per service rather than shared,
  * since the state machines and store shapes differ.

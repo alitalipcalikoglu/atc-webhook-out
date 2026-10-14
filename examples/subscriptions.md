@@ -22,7 +22,7 @@ wcurl -X POST $WH/v1/subscriptions -d '{
     "id": "sub_9f2c1a7e5b3d0c4e", "name": "kargocu-a", "description": "Shipping partner, production integration",
     "url": "https://api.kargocu-a.example/hooks/orders", "events": ["order.cancelled", "order.paid"], "headers": { "x-tenant": "shop-1" },
     "status": "active", "consecutiveFailures": 0, "lastDeliveryAt": null, "lastStatus": null, "secretRotatedUntil": null,
-    "createdBy": "console", "createdAt": "2026-09-17T10:00:00.000Z", "updatedAt": "2026-09-17T10:00:00.000Z"
+    "createdBy": "atc-console", "createdAt": "2026-09-17T10:00:00.000Z", "updatedAt": "2026-09-17T10:00:00.000Z"
   },
   "secret": "whsec_k3Y…"
 }

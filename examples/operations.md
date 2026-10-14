@@ -54,7 +54,7 @@ pm2 reload webhook-out
 
 ```bash
 docker build -t atc-webhook-out .
-docker run -d -p 3009:3009 -v webhook-out-data:/data --env-file .env atc-webhook-out
+docker run -d -p 3009:3009 -v atc-webhook-out-data:/data --env-file .env atc-webhook-out
 ```
 
 ## Logs

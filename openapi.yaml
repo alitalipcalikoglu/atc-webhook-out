@@ -166,7 +166,7 @@ paths:
                 properties:
                   service:
                     type: string
-                    const: webhook-out
+                    const: atc-webhook-out
                   version:
                     type: string
                     description: This service's own package.json semver.

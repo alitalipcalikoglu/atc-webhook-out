@@ -16,7 +16,7 @@ import { Views } from './views.js';
 /**
  * HTTP surface: subscriptions and deliveries (write/read roles), publishing (publish role).
  *
- * `worker` is `null` in the API-only role (Stage 6, `src/api-main.js`) — see `scheduler`'s
+ * `worker` is `null` in the API-only role (Stage 6, `src/api-main.js`) — see `atc-scheduler`'s
  * `http/scheduler-api.js` module doc for the identical reasoning (`presence`/`runningCount()`
  * fallback, `sinceStart` reported `null` rather than a misleading zero).
  */

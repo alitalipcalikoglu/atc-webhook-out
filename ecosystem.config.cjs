@@ -38,10 +38,10 @@ module.exports = {
     // Two processes instead of one: an API replica takes HTTP traffic without ever claiming a
     // delivery, and a worker replica claims and executes deliveries without listening on a port.
     // Both share the same DB_PATH and the same Config. To use this topology instead of the
-    // combined one: remove the 'webhook-out' app above and uncomment these two.
+    // combined one: remove the 'atc-webhook-out' app above and uncomment these two.
     //
     // {
-    //   name: 'webhook-out-api',
+    //   name: 'atc-webhook-out-api',
     //   cwd: __dirname,
     //   script: 'src/api-main.js',
     //   node_args: ['--disable-warning=ExperimentalWarning', `--env-file=${path.join(__dirname, '.env')}`],
@@ -58,7 +58,7 @@ module.exports = {
     //   env: { NODE_ENV: 'production' },
     // },
     // {
-    //   name: 'webhook-out-worker',
+    //   name: 'atc-webhook-out-worker',
     //   cwd: __dirname,
     //   script: 'src/worker-main.js',
     //   node_args: ['--disable-warning=ExperimentalWarning', `--env-file=${path.join(__dirname, '.env')}`],

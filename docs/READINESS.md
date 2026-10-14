@@ -1,7 +1,7 @@
-# `webhook-out` readiness contract
+# `atc-webhook-out` readiness contract
 
 ## Purpose
-`webhook-out` is the platform's outbound-webhook fan-out service: internal backends publish
+`atc-webhook-out` is the platform's outbound-webhook fan-out service: internal backends publish
 events (`POST /v1/events`), external partners subscribe to event-type patterns, and the service
 delivers each matching event to every active subscriber as an HMAC-signed HTTP POST, retrying on a
 schedule, auto-disabling receivers that stay dead, and keeping the full delivery history queryable.
@@ -15,17 +15,17 @@ service having to know about HTTP delivery, retries, signing or subscriber manag
   subscription is auto-disabled after `DISABLE_AFTER_FAILURES` consecutive dead deliveries
   (`src/worker.js`, `src/store/subscription-store.js`). Every other subscriber and the rest of the
   API are unaffected.
-- **`audit` service** (`AUDIT_URL` + `AUDIT_API_KEY`): optional, both-or-neither
+- **`atc-audit` service** (`AUDIT_URL` + `AUDIT_API_KEY`): optional, both-or-neither
   (`src/config.js`). When unset, audit forwarding is a no-op (`AuditClient.enabled` is `false`)
   and nothing else changes. When set, every completed write request is queued in memory
   (`AuditClient.record`, called from the Fastify `onSend` hook) and flushed asynchronously on a
   timer — the queuing itself never touches the network, so an audit outage never slows or fails
   the business request. If the audit service is down, batches retry with backoff and stay
   buffered (capped at `AuditClient.MAX_BUFFER = 5_000` events, oldest dropped once full) until it
-  recovers; there is no other effect on `webhook-out`'s own behaviour.
+  recovers; there is no other effect on `atc-webhook-out`'s own behaviour.
 
-No other service or external system is called by `webhook-out` itself (it does not call `auth`,
-`notify`, or any other sibling service).
+No other service or external system is called by `atc-webhook-out` itself (it does not call `atc-auth`,
+`atc-notify`, or any other sibling service).
 
 ## Persistence
 Engine: SQLite via `node:sqlite`'s `DatabaseSync` (`src/db.js`), one file at `DB_PATH` (default
@@ -105,10 +105,10 @@ fixed this order — see below for what it was and why):
 5. `db.close()`.
 
 **Before Stage 6** step 4 (audit flush) was step 2, running *before* the worker drained — see
-`scheduler`'s identical fix for the general reasoning. The fix is purely a reordering.
+`atc-scheduler`'s identical fix for the general reasoning. The fix is purely a reordering.
 
 A force-exit timer is armed before any of this: `setTimeout(() => { log.error(...); process.exit(1); }, config.deliveryTimeoutMs + 10_000).unref()`. With the default `DELIVERY_TIMEOUT_MS=15000` that is
-**25 s**. `webhook-out/ecosystem.config.cjs` sets PM2's `kill_timeout: 150000` (150 s, Stage 6 —
+**25 s**. `atc-webhook-out/ecosystem.config.cjs` sets PM2's `kill_timeout: 150000` (150 s, Stage 6 —
 was 40 s). `DELIVERY_TIMEOUT_MS` is bounded at `max: 120_000` (unchanged by Stage 6, it already had
 this ceiling), so the worst-case force-exit timer is `120_000 + 10_000 = 130_000` ms — comfortably
 under the new 150 s `kill_timeout` regardless of how `DELIVERY_TIMEOUT_MS` is configured within its
@@ -127,7 +127,7 @@ the app's own force-exit timer has a chance to run.
 
 Audit's own flush retry loop (up to 6 attempts with backoff, cumulative sleeps of roughly
 1+2+4+8+16 s, plus up to 5 s per HTTP attempt) can still, by itself, consume a large fraction of the
-force-exit budget if `audit` is unreachable — but it now runs *after* the worker has already
+force-exit budget if `atc-audit` is unreachable — but it now runs *after* the worker has already
 drained, so a slow or hung audit flush no longer delays the far more important step of finishing
 in-flight deliveries cleanly; it only delays process exit itself, which the force-exit timer still
 bounds.
@@ -200,7 +200,7 @@ bounds.
 - **`POST /v1/events` without `idempotencyKey`**: not idempotent — every call creates a new event
   and new deliveries.
 - **Delivery attempts / retries**: not idempotent from the subscriber's point of view. A delivery
-  interrupted by a crash after the subscriber actually received it, but before `webhook-out`
+  interrupted by a crash after the subscriber actually received it, but before `atc-webhook-out`
   recorded success, is retried as a fresh attempt on restart; a receiver that already saw the same
   `X-Webhook-Id`/`X-Webhook-Delivery` must de-duplicate itself — this service makes no dedup
   guarantee on the wire, only a signed, identifiable payload.
@@ -239,7 +239,7 @@ consistent-snapshot tools (e.g. `sqlite3 <path> ".backup <dest>"` or `VACUUM INT
 live file, plus separately recording `SECRETS_KEY` and `WEBHOOK_API_KEYS`.
 
 ## Restore
-1. Stop `webhook-out`.
+1. Stop `atc-webhook-out`.
 2. Place the backed-up database file at `DB_PATH` (the parent directory is created automatically
    by `Database`'s constructor if missing).
 3. Restore `.env` with the **same** `SECRETS_KEY` that sealed the backed-up secrets — a mismatched
@@ -250,9 +250,9 @@ live file, plus separately recording `SECRETS_KEY` and `WEBHOOK_API_KEYS`.
    already at the current schema version.
 5. Verify with `GET /ready` and a read-role call to `GET /v1/subscriptions`.
 
-No ordering constraint exists with other services' data — `webhook-out` has no foreign keys or
+No ordering constraint exists with other services' data — `atc-webhook-out` has no foreign keys or
 cross-service references into another service's storage. If continuity of the audit trail matters
-operationally, restore the `audit` service's own data independently; there is no technical
+operationally, restore the `atc-audit` service's own data independently; there is no technical
 coupling requiring the two to be restored together.
 
 ## Metrics
@@ -275,9 +275,9 @@ Fastify's default structured request logging applies: `reqId` (see Tracing), and
 default `req.url` field, not as a normalised `route`/`op` name. The worker adds its own
 delivery-specific structured fields on top (`delivery`, `event`, `subscription`, `attempt`,
 `status`, `httpStatus`, `durationMs`, `nextAttemptAt`, `error`) — useful operationally, but outside
-the platform's shared vocabulary in [OBSERVABILITY.md](../../stack/docs/OBSERVABILITY.md).
+the platform's shared vocabulary in [OBSERVABILITY.md](../../atc-stack/docs/OBSERVABILITY.md).
 
-Against that shared vocabulary, `webhook-out` does **not** yet emit: a normalised `route`/`op`
+Against that shared vocabulary, `atc-webhook-out` does **not** yet emit: a normalised `route`/`op`
 (`traceId`/`spanId` are now emitted — see Tracing; only implicit `req.url`),
 `upstream` / `upstreamMs` for either of its outbound call types (subscriber deliveries, audit
 batches — neither is logged with a labelled upstream/timing field), `service` / `version` (no
@@ -286,7 +286,7 @@ machine code reaches the HTTP response body but is not echoed into the log line;
 `5xx` errors are logged, via `request.log.error({ err })`).
 
 ## Tracing
-`webhook-out` sets `requestIdHeader: 'x-request-id'` with `genReqId: () => randomUUID()` in its
+`atc-webhook-out` sets `requestIdHeader: 'x-request-id'` with `genReqId: () => randomUUID()` in its
 Fastify build (`src/http/webhook-api.js`) — it unconditionally accepts and logs (as `reqId`)
 whatever `X-Request-Id` a caller sends, generating its own only when the header is absent. This is
 not new to this review; it predates it, and matches every other internal-only service on this
@@ -295,7 +295,7 @@ platform.
 It also parses an inbound `traceparent` via `@atc-web/atc-service-core`'s `registerRequestContext`,
 trust-gated on `TRUST_PROXY` (same boundary as `X-Forwarded-*`): trusted, the caller's trace-id is
 continued with a fresh span-id; untrusted or malformed, a fresh trace is started. Both
-`traceId`/`spanId` are logged on every request line. Neither of `webhook-out`'s own outbound
+`traceId`/`spanId` are logged on every request line. Neither of `atc-webhook-out`'s own outbound
 call paths forwards a request id or trace context onward — both remain external/operator-configured
 or deliberately unwired, see OBSERVABILITY.md's trust model: `HttpCaller.call` (deliveries to
 subscribers, `src/net/http-caller.js`) sends only `content-type`, `content-length`, `accept`,
@@ -371,7 +371,7 @@ is strictly less than `now` (`now == lease_until` is NOT yet expired — same in
 claim/heartbeat/finish, locked in by the Stage 6.1 regression test `test/lease.test.js`
 "DeliveryStore: reclaimExpired exact-boundary invariant") and settles it as a failed attempt inside
 one transaction with every write — the same race-free
-construction as `scheduler`'s identical primitive (see its README for the full "why one
+construction as `atc-scheduler`'s identical primitive (see its README for the full "why one
 transaction" reasoning, kept independent per service rather than shared since the state machines
 and store shapes differ).
 
@@ -447,7 +447,7 @@ idempotency concern, unchanged from before Stage 10).
 ## Scaling model
 **B — single-node stateful, but "single-node" now means one HOST, not one PROCESS.** One SQLite
 file (`node:sqlite` `DatabaseSync`, WAL mode, `busy_timeout` 5 000 ms). `ecosystem.config.cjs`'s
-default (combined) app still pins `instances: 1`, but the commented-out split `webhook-out-worker`
+default (combined) app still pins `instances: 1`, but the commented-out split `atc-webhook-out-worker`
 app documents raising its own `instances` above 1 as a supported topology.
 
 Two (or more) worker processes pointed at the same file: SQLite's own file locking (`BEGIN
@@ -471,7 +471,7 @@ topology) is now a supported configuration: no double-claiming, no double-delive
 race, and a crash in one worker is reclaimed by any live sibling — at the cost of write-lock
 contention under very high claim rates (`busy_timeout = 5000` ms) and the per-process metrics
 divergence noted above. Still one host, one SQLite file — there is no network-shared counter
-store, so scaling across *hosts* still means separate `webhook-out` instances with disjoint
+store, so scaling across *hosts* still means separate `atc-webhook-out` instances with disjoint
 subscriber sets and separate databases.
 
 ## Known failure modes
