@@ -27,7 +27,7 @@ export class Views {
   /** @param {DeliveryRow} d */
   static delivery(d) {
     return {
-      id: Number(d.id), eventId: d.event_id, subscriptionId: d.subscription_id, status: d.status,
+      id: d.public_id, eventId: d.event_id, subscriptionId: d.subscription_id, status: d.status,
       attempt: Number(d.attempt), maxAttempts: Number(d.max_attempts), nextAttemptAt: Views.iso(d.next_attempt_at),
       startedAt: Views.iso(d.started_at), finishedAt: Views.iso(d.finished_at), durationMs: d.duration_ms === null ? null : Number(d.duration_ms),
       httpStatus: d.http_status === null ? null : Number(d.http_status), response: d.response, error: d.error,

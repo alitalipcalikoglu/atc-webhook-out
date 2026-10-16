@@ -64,7 +64,7 @@ test('API: subscription lifecycle, secret shown once, rotate, list filters, vali
   res = await app.inject({ method: 'PATCH', url: `/v1/subscriptions/${sub.id}`, headers: bearer(WRITE_KEY), payload: { enabled: false, events: ['order.paid'] } });
   assert.deepEqual([json(res).subscription.status, json(res).subscription.events], ['paused', ['order.paid']]);
   assert.equal((await app.inject({ method: 'PATCH', url: `/v1/subscriptions/${sub.id}`, headers: bearer(WRITE_KEY), payload: {} })).statusCode, 400, 'empty patch');
-  assert.equal((await app.inject({ url: '/v1/subscriptions/sub_0000000000000000', headers: bearer(READ_KEY) })).statusCode, 404);
+  assert.equal((await app.inject({ url: '/v1/subscriptions/sub_mgx1k2ab0000000000000000', headers: bearer(READ_KEY) })).statusCode, 404);
   assert.equal((await app.inject({ url: '/v1/subscriptions/nope', headers: bearer(READ_KEY) })).statusCode, 400, 'id shape');
 
   res = await app.inject({ method: 'POST', url: `/v1/subscriptions/${sub.id}/rotate`, headers: { ...bearer(WRITE_KEY), 'content-type': 'application/json' } });
@@ -83,12 +83,12 @@ test('API: publish, fan-out, idempotency, events, deliveries, test, replay, rede
   t.after(() => app.close());
   const okSub = json(await app.inject({ method: 'POST', url: '/v1/subscriptions', headers: bearer(RW_KEY), payload: { name: 'ok', url: `${rx.url}/ok`, events: ['order.*'] } })).subscription;
   const badSub = json(await app.inject({ method: 'POST', url: '/v1/subscriptions', headers: bearer(RW_KEY), payload: { name: 'bad', url: `${rx.url}/fail`, events: ['*'] } })).subscription;
-  let res = await app.inject({ method: 'POST', url: '/v1/events', headers: bearer(PUBLISH_KEY), payload: { type: 'order.paid', data: { orderId: 42 }, idempotencyKey: 'ord-42' } });
+  let res = await app.inject({ method: 'POST', url: '/v1/events', headers: { ...bearer(PUBLISH_KEY), 'idempotency-key': 'ord-42-key' }, payload: { type: 'order.paid', data: { orderId: 42 } } });
   assert.equal(res.statusCode, 202, res.body);
   const { event } = json(res);
-  assert.deepEqual([json(res).deliveries, json(res).duplicate, event.source, event.idempotencyKey, event.test], [2, false, 'shop-backend', 'ord-42', false]);
-  res = await app.inject({ method: 'POST', url: '/v1/events', headers: bearer(PUBLISH_KEY), payload: { type: 'order.paid', data: { orderId: 42 }, idempotencyKey: 'ord-42' } });
-  assert.deepEqual([res.statusCode, json(res).duplicate, json(res).event.id], [200, true, event.id]);
+  assert.deepEqual([json(res).deliveries, json(res).duplicate, event.source, event.idempotencyKey, event.test], [2, false, 'shop-backend', 'ord-42-key', false]);
+  res = await app.inject({ method: 'POST', url: '/v1/events', headers: { ...bearer(PUBLISH_KEY), 'idempotency-key': 'ord-42-key' }, payload: { type: 'order.paid', data: { orderId: 42 } } });
+  assert.deepEqual([res.statusCode, json(res).duplicate, json(res).event.id, res.headers['idempotent-replayed']], [200, true, event.id, 'true']);
   res = await app.inject({ method: 'POST', url: '/v1/events', headers: bearer(PUBLISH_KEY), payload: { type: 'Bad Type', data: {} } });
   assert.equal(json(res).error.code, 'INVALID_EVENT_TYPE');
   assert.equal((await app.inject({ method: 'POST', url: '/v1/events', headers: bearer(PUBLISH_KEY), payload: { type: 'a', data: 'x'.repeat(70_000) } })).statusCode, 413);
@@ -103,9 +103,13 @@ test('API: publish, fan-out, idempotency, events, deliveries, test, replay, rede
   let list = json(await app.inject({ url: '/v1/deliveries?status=retrying', headers: bearer(READ_KEY) }));
   assert.deepEqual(list.items.map((/** @type {any} */ d) => d.id), [dead.id]);
   assert.deepEqual(json(await app.inject({ url: `/v1/subscriptions/${okSub.id}/deliveries`, headers: bearer(READ_KEY) })).items.map((/** @type {any} */ d) => d.status), ['succeeded']);
-  assert.deepEqual(json(await app.inject({ url: `/v1/deliveries?event=${event.id}&limit=1`, headers: bearer(READ_KEY) })).nextBefore, String(Math.max(...json(res).deliveries.map((/** @type {any} */ d) => d.id))));
+  const page = json(await app.inject({ url: `/v1/deliveries?event=${event.id}&limit=1`, headers: bearer(READ_KEY) }));
+  assert.ok(page.nextCursor);
+  assert.notDeepEqual(json(await app.inject({ url: `/v1/deliveries?event=${event.id}&limit=1&cursor=${page.nextCursor}`, headers: bearer(READ_KEY) })).items[0].id, page.items[0].id);
+  assert.match(dead.id, /^dlv_[0-9a-z]{6,12}[0-9a-f]{16}$/);
   assert.equal(json(await app.inject({ url: `/v1/deliveries/${dead.id}`, headers: bearer(READ_KEY) })).delivery.attempts.length, 1);
-  assert.equal((await app.inject({ url: '/v1/deliveries/999', headers: bearer(READ_KEY) })).statusCode, 404);
+  assert.equal((await app.inject({ url: '/v1/deliveries/dlv_mgx1k2ab0123456789abcdef', headers: bearer(READ_KEY) })).statusCode, 404);
+  assert.equal((await app.inject({ url: '/v1/deliveries/999', headers: bearer(READ_KEY) })).statusCode, 400);
 
   res = await app.inject({ method: 'POST', url: `/v1/deliveries/${dead.id}/cancel`, headers: bearer(WRITE_KEY) });
   assert.equal(json(res).delivery.status, 'cancelled');

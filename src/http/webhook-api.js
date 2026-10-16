@@ -3,6 +3,7 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 import { AuditClient } from '@atc-web/atc-service-core/audit';
 import { createErrorHandler, jsonParser, registerInfo, registerOpenApi, registerProbes, registerRequestContext, requestOptions } from '@atc-web/atc-service-core/fastify';
+import { Idempotency } from '@atc-web/atc-service-core/idempotency';
 import { WebhookError } from '../domain/errors.js';
 import { DeliveryStore } from '../store/delivery-store.js';
 import { ApiKeyAuth } from './api-key-auth.js';
@@ -99,6 +100,8 @@ export class WebhookApi {
       reply.header('x-content-type-options', 'nosniff');
       reply.header('cache-control', 'no-store');
     });
+    // Opt-in per route (config.idempotent): repeats with the same Idempotency-Key replay the first 2xx answer.
+    Idempotency.register(app, { raw: this.db.raw });
     registerProbes(app, () => this.db.ping(), { cacheMs: WebhookApi.READY_CACHE_MS, extra: () => ({ worker: this.workerStatus() }) });
     registerOpenApi(app, new URL('../../openapi.yaml', import.meta.url));
     registerInfo(app, {
@@ -127,7 +130,11 @@ export class WebhookApi {
     const write = { preValidation: ApiKeyAuth.require('write') };
     const publish = { preValidation: ApiKeyAuth.require('publish') };
     const pid = (/** @type {FastifyRequest} */ r) => /** @type {{ id: string }} */ (r.params).id;
-    const nid = (/** @type {FastifyRequest} */ r) => Number(pid(r));
+    const nid = (/** @type {FastifyRequest} */ r) => {
+      const internal = this.deliveries.idOf(pid(r));
+      if (internal === undefined) throw new WebhookError('DELIVERY_NOT_FOUND', `delivery ${pid(r)} not found`);
+      return internal;
+    };
     const query = (/** @type {FastifyRequest} */ r) => /** @type {Record<string, string|undefined>} */ (r.query);
     const actor = (/** @type {FastifyRequest} */ r) => r.apiKey.id;
     const parseIso = (/** @type {string|undefined} */ s, /** @type {string} */ field) => {
@@ -158,11 +165,11 @@ export class WebhookApi {
       const { row, secret, previousValidUntil } = this.subs.rotate(pid(request));
       return { subscription: Views.subscription(row), secret, previousValidUntil };
     });
-    api.post('/subscriptions/:id/test', { config: { audit: AuditClient.route('atc-webhook-out.subscription.test', (r) => ({ type: 'subscription', id: /** @type {any} */ (r.params).id })) }, ...write, schema: { params: Schemas.subParams } }, async (request, reply) => {
+    api.post('/subscriptions/:id/test', { config: { idempotent: true, audit: AuditClient.route('atc-webhook-out.subscription.test', (r) => ({ type: 'subscription', id: /** @type {any} */ (r.params).id })) }, ...write, schema: { params: Schemas.subParams } }, async (request, reply) => {
       const { event, delivery } = this.evs.test(pid(request), actor(request));
       return reply.code(202).send({ event: Views.event(event), delivery: Views.delivery(delivery) });
     });
-    api.post('/subscriptions/:id/replay', { config: { audit: AuditClient.route('atc-webhook-out.subscription.replay', (r) => ({ type: 'subscription', id: /** @type {any} */ (r.params).id }), (r, b) => ({ ...(/** @type {object} */ (r.body ?? {})), queued: b?.queued })) }, ...write, schema: { params: Schemas.subParams, body: Schemas.replay } }, async (request, reply) => {
+    api.post('/subscriptions/:id/replay', { config: { idempotent: true, audit: AuditClient.route('atc-webhook-out.subscription.replay', (r) => ({ type: 'subscription', id: /** @type {any} */ (r.params).id }), (r, b) => ({ ...(/** @type {object} */ (r.body ?? {})), queued: b?.queued })) }, ...write, schema: { params: Schemas.subParams, body: Schemas.replay } }, async (request, reply) => {
       const b = /** @type {{ from: string, to?: string }} */ (request.body);
       const out = this.evs.replay(pid(request), { from: /** @type {number} */ (parseIso(b.from, 'from')), to: parseIso(b.to, 'to') });
       return reply.code(202).send(out);
@@ -174,27 +181,33 @@ export class WebhookApi {
 
     // ---- events
     api.post('/events', { ...publish, schema: { body: Schemas.publish } }, async (request, reply) => {
-      const { event, deliveries, duplicate } = this.evs.publish(/** @type {any} */ (request.body), actor(request));
+      // The Idempotency-Key header deduplicates events for good (stored on the event), not only for 24 h.
+      const header = request.headers['idempotency-key'];
+      if (header !== undefined && (typeof header !== 'string' || !/^[A-Za-z0-9._:-]{8,255}$/.test(header))) {
+        return reply.code(400).send({ error: { code: 'INVALID_IDEMPOTENCY_KEY', message: 'Idempotency-Key must be 8-255 characters of A-Z a-z 0-9 . _ : -' } });
+      }
+      const { event, deliveries, duplicate } = this.evs.publish({ .../** @type {any} */ (request.body), idempotencyKey: header }, actor(request));
+      if (duplicate) reply.header('idempotent-replayed', 'true');
       return reply.code(duplicate ? 200 : 202).send({ event: Views.event(event), deliveries: deliveries.length, duplicate });
     });
     api.get('/events', { ...read, schema: { querystring: Schemas.eventsQuery } }, async (request) => {
       const q = query(request);
       const limit = q.limit ? Number(q.limit) : 50;
-      const rows = this.events.list({ type: q.type }, { limit: limit + 1, beforeSeq: q.before ? Number(q.before) : undefined });
+      const rows = this.events.list({ type: q.type }, { limit: limit + 1, beforeSeq: q.cursor ? Number(q.cursor) : undefined });
       const items = rows.slice(0, limit);
-      return { items: items.map(Views.event), nextBefore: rows.length > limit ? String(items[items.length - 1].seq) : null };
+      return { items: items.map(Views.event), nextCursor: rows.length > limit ? String(items[items.length - 1].seq) : null };
     });
     api.get('/events/:id', { ...read, schema: { params: Schemas.evtParams } }, async (request) => {
       const e = this.events.require(pid(request));
       return { event: Views.event(e), deliveries: this.deliveries.forEvent(e.id).map(Views.delivery) };
     });
-    api.get('/event-types', read, async () => ({ items: this.events.types().map((t) => ({ ...t, lastAt: Views.iso(t.lastAt) })) }));
+    api.get('/event-types', read, async () => ({ items: this.events.types().map((t) => ({ ...t, lastAt: Views.iso(t.lastAt) })), nextCursor: null }));
 
     // ---- deliveries
     api.get('/deliveries', { ...read, schema: { querystring: Schemas.deliveriesQuery } }, async (request) => this.#deliveries(query(request)));
     api.get('/deliveries/:id', { ...read, schema: { params: Schemas.idParams } }, async (request) => ({ delivery: Views.delivery(this.evs.delivery(nid(request))) }));
-    api.post('/deliveries/:id/redeliver', { config: { audit: AuditClient.route('atc-webhook-out.delivery.redeliver', (r) => ({ type: 'delivery', id: /** @type {any} */ (r.params).id })) }, ...write, schema: { params: Schemas.idParams } }, async (request, reply) => reply.code(202).send({ delivery: Views.delivery(this.evs.redeliver(nid(request))) }));
-    api.post('/deliveries/:id/cancel', { config: { audit: AuditClient.route('atc-webhook-out.delivery.cancel', (r) => ({ type: 'delivery', id: /** @type {any} */ (r.params).id })) }, ...write, schema: { params: Schemas.idParams } }, async (request) => ({ delivery: Views.delivery(this.evs.cancel(nid(request))) }));
+    api.post('/deliveries/:id/redeliver', { config: { idempotent: true, audit: AuditClient.route('atc-webhook-out.delivery.redeliver', (r) => ({ type: 'delivery', id: /** @type {any} */ (r.params).id })) }, ...write, schema: { params: Schemas.idParams } }, async (request, reply) => reply.code(202).send({ delivery: Views.delivery(this.evs.redeliver(nid(request))) }));
+    api.post('/deliveries/:id/cancel', { config: { idempotent: true, audit: AuditClient.route('atc-webhook-out.delivery.cancel', (r) => ({ type: 'delivery', id: /** @type {any} */ (r.params).id })) }, ...write, schema: { params: Schemas.idParams } }, async (request) => ({ delivery: Views.delivery(this.evs.cancel(nid(request))) }));
 
     api.get('/stats', read, async () => this.#stats());
   }
@@ -202,9 +215,9 @@ export class WebhookApi {
   /** @param {Record<string, string|undefined>} q */
   #deliveries(q) {
     const limit = q.limit ? Number(q.limit) : 50;
-    const rows = this.deliveries.list({ subscriptionId: q.subscription, eventId: q.event, status: /** @type {any} */ (q.status) }, { limit: limit + 1, beforeId: q.before ? Number(q.before) : undefined });
+    const rows = this.deliveries.list({ subscriptionId: q.subscription, eventId: q.event, status: /** @type {any} */ (q.status) }, { limit: limit + 1, beforeId: q.cursor ? Number(q.cursor) : undefined });
     const items = rows.slice(0, limit);
-    return { items: items.map(Views.delivery), nextBefore: rows.length > limit ? String(items[items.length - 1].id) : null };
+    return { items: items.map(Views.delivery), nextCursor: rows.length > limit ? String(items[items.length - 1].id) : null };
   }
 
   #stats() {

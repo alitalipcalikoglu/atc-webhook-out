@@ -85,5 +85,12 @@ export class Database extends CoreDatabase {
     -- for the exact ordering/claim semantics this column enables.
     ALTER TABLE subscriptions ADD COLUMN ordered INTEGER NOT NULL DEFAULT 0;
     `,
+    `
+    -- Public delivery ids in the platform's one format (dlv_<time><random>); the integer id stays the
+    -- internal key, the list cursor and the fencing target. Existing rows get a time part of zeros.
+    ALTER TABLE deliveries ADD COLUMN public_id TEXT;
+    UPDATE deliveries SET public_id = 'dlv_00000000' || lower(hex(randomblob(8))) WHERE public_id IS NULL;
+    CREATE UNIQUE INDEX deliveries_public_id ON deliveries (public_id);
+    `,
   ];
 }

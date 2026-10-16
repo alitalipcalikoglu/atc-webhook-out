@@ -51,7 +51,7 @@ test('SecretBox: seals and opens, rejects tampering; Signer: two secrets during 
 test('SubscriptionService: create, validation, update, pause/resume, rotate, delete', () => {
   const { subscriptionService: s, box, clock, config } = testService();
   const { row, secret } = s.create({ name: 'kargocu-a', url: 'https://api.partner.example/hooks', events: ['order.paid', 'order.*'], headers: { 'X-Tenant': 'shop-1' }, description: 'Cargo partner' }, 'console');
-  assert.match(row.id, /^sub_[0-9a-f]{16}$/);
+  assert.match(row.id, /^sub_[0-9a-z]{6,12}[0-9a-f]{16}$/);
   assert.equal(row.status, 'active');
   assert.deepEqual(JSON.parse(row.events), ['order.*', 'order.paid']);
   assert.deepEqual(JSON.parse(row.headers), { 'x-tenant': 'shop-1' });
@@ -98,7 +98,7 @@ test('EventService: publish fans out to matching active subscriptions; idempoten
   const c = s.create({ name: 'c', url: 'https://api.partner.example/c', events: ['user.*'] }, 'console').row;
   const p = s.create({ name: 'p', url: 'https://api.partner.example/p', events: ['*'], enabled: false }, 'console').row;
   let out = ev.publish({ type: 'order.paid', data: { orderId: 42 }, idempotencyKey: 'ord-42' }, 'shop-backend');
-  assert.match(out.event.id, /^evt_[0-9a-f]{16}$/);
+  assert.match(out.event.id, /^evt_[0-9a-z]{6,12}[0-9a-f]{16}$/);
   assert.equal(out.duplicate, false);
   assert.deepEqual(out.deliveries.map((d) => d.subscription_id).sort(), [a.id, b.id].sort(), 'a and b match, c does not, p is paused');
   assert.equal(out.deliveries[0].max_attempts, 4, 'schedule of 3 retries = 4 attempts');

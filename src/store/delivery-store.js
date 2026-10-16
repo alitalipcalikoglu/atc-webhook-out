@@ -1,3 +1,4 @@
+import { Ids } from '@atc-web/atc-service-core/ids';
 import { randomUUID } from 'node:crypto';
 
 /** @typedef {import('../db.js').Database} Database */
@@ -19,7 +20,7 @@ import { randomUUID } from 'node:crypto';
  * (kept independent, not shared, since the two services' state machines and columns differ).
  */
 export class DeliveryStore {
-  static COLUMNS = 'id, event_id, subscription_id, status, attempt, max_attempts, next_attempt_at, started_at, finished_at, duration_ms, http_status, response, error, attempts, created_at, owner_token, lease_until';
+  static COLUMNS = 'id, event_id, subscription_id, status, attempt, max_attempts, next_attempt_at, started_at, finished_at, duration_ms, http_status, response, error, attempts, created_at, owner_token, lease_until, public_id';
   static STATUSES = /** @type {const} */ (['pending', 'running', 'retrying', 'succeeded', 'failed', 'cancelled']);
 
   /** @param {Database} db */
@@ -27,7 +28,8 @@ export class DeliveryStore {
     this.db = db;
     const C = DeliveryStore.COLUMNS;
     this.stmt = {
-      insert: db.prepare(`INSERT INTO deliveries (event_id, subscription_id, status, attempt, max_attempts, next_attempt_at, created_at) VALUES (?, ?, 'pending', 0, ?, ?, ?)`),
+      insert: db.prepare(`INSERT INTO deliveries (event_id, subscription_id, status, attempt, max_attempts, next_attempt_at, created_at, public_id) VALUES (?, ?, 'pending', 0, ?, ?, ?, ?)`),
+      idOf: db.prepare('SELECT id FROM deliveries WHERE public_id = ?'),
       get: db.prepare(`SELECT ${C} FROM deliveries WHERE id = ?`),
       // Only active subscriptions receive calls; paused and disabled ones keep their queue.
       //
@@ -96,7 +98,7 @@ export class DeliveryStore {
    * @param {number} now
    */
   insert({ eventId, subscriptionId, maxAttempts, nextAttemptAt }, now) {
-    const id = Number(this.stmt.insert.run(eventId, subscriptionId, maxAttempts, nextAttemptAt, now).lastInsertRowid);
+    const id = Number(this.stmt.insert.run(eventId, subscriptionId, maxAttempts, nextAttemptAt, now, Ids.create('dlv', now)).lastInsertRowid);
     return /** @type {DeliveryRow} */ (this.get(id));
   }
 
@@ -209,5 +211,11 @@ export class DeliveryStore {
       recentFailures: /** @type {{ subscription_id: string, n: number }[]} */ (this.stmt.recentFailures.all(since, topN)).map((r) => ({ subscriptionId: r.subscription_id, failed: Number(r.n) })),
       recentAvgDurationMs: avg.avg === null ? null : Math.round(Number(avg.avg)),
     };
+  }
+
+  /** Internal id of a public delivery id, or undefined. @param {string} publicId @returns {number|undefined} */
+  idOf(publicId) {
+    const r = /** @type {{ id: number }|undefined} */ (this.stmt.idOf.get(publicId));
+    return r ? Number(r.id) : undefined;
   }
 }

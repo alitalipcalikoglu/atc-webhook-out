@@ -85,7 +85,8 @@
 /**
  * One event to one subscriber, through every attempt.
  * @typedef {object} DeliveryRow
- * @property {number} id
+ * @property {number} id               Internal key (list cursor, fencing); never exposed.
+ * @property {string} public_id        `dlv_<time><random>`, the id clients and receivers see.
  * @property {string} event_id
  * @property {string} subscription_id
  * @property {DeliveryStatus} status

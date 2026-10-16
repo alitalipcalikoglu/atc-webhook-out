@@ -37,7 +37,7 @@ npm run typecheck
 ## Model
 
 - **A subscription** is a receiver: `name`, `url`, event patterns (`order.paid`, `order.*`, `*`), custom `X-*` headers, a signing secret shown once at creation and stored encrypted (`SECRETS_KEY`, AES-256-GCM). Status `active`, `paused` (by an operator) or `disabled` (automatically, after `DISABLE_AFTER_FAILURES` consecutive dead deliveries). Paused and disabled subscribers receive no new events; their queued deliveries wait.
-- **An event** is `{ type, data }` from a backend, optionally with an `idempotencyKey` (per publishing key). Publishing stores the event and queues one **delivery** per matching active subscription in the same transaction; `202` means queued for everyone.
+- **An event** is `{ type, data }` from a backend, optionally with an `Idempotency-Key` header (per publishing key). Publishing stores the event and queues one **delivery** per matching active subscription in the same transaction; `202` means queued for everyone.
 - **A delivery** is one event to one subscriber through every attempt: `pending` → `running` → `succeeded` / `failed`, or `retrying` between attempts on `RETRY_SCHEDULE_SEC` (default 1 min, 5 min, 30 min, 2 h, 6 h, 24 h). `5xx`, `408`, `425`, `429`, timeouts and connection errors retry; other `4xx`, `3xx` and blocked targets fail at once. Interrupted attempts are retried after a restart.
 - **Every call** carries `X-Webhook-Id` (event), `X-Webhook-Event`, `X-Webhook-Delivery`, `X-Webhook-Attempt`, `X-Webhook-Subscription`, `X-Webhook-Timestamp` and `X-Webhook-Signature` (`t=<unix>,v1=HMAC-SHA256(secret, "<t>.<body>")`, two `v1` values during a secret rotation). Only `2xx` is success; redirects are not followed.
 - **Operator tools**: test event, replay of a time window, redelivery of one delivery, cancel, secret rotation with a dual-signed grace period.
@@ -87,9 +87,9 @@ Errors are JSON: `{ "error": { "code", "message", "details?" } }`.
 | POST | `/v1/subscriptions/:id/rotate` | write | New secret → `{ subscription, secret, previousValidUntil }`. |
 | POST | `/v1/subscriptions/:id/test` | write | Queue a `webhook.test` event for this subscriber → `202 { event, delivery }`. |
 | POST | `/v1/subscriptions/:id/replay` | write | `{ from, to? }` → `202 { queued }`: re-queue matching events of the window. |
-| GET | `/v1/subscriptions/:id/deliveries` | read | That subscriber's deliveries (`status`, `limit`, `before`). |
-| POST | `/v1/events` | publish | `{ type, data, idempotencyKey? }` → `202 { event, deliveries, duplicate }` (`200` on a repeat). |
-| GET | `/v1/events`, `/v1/events/:id` | read | Newest first (`type`, `limit`, `before`); one event with its deliveries. |
+| GET | `/v1/subscriptions/:id/deliveries` | read | That subscriber's deliveries (`status`, `limit`, `cursor`). |
+| POST | `/v1/events` | publish | `{ type, data }` (+ `Idempotency-Key` header) → `202 { event, deliveries, duplicate }` (`200` on a repeat). |
+| GET | `/v1/events`, `/v1/events/:id` | read | Newest first (`type`, `limit`, `cursor`); one event with its deliveries. |
 | GET | `/v1/event-types` | read | Distinct types with counts and last seen. |
 | GET | `/v1/deliveries`, `/v1/deliveries/:id` | read | All deliveries (`status`, `subscription`, `event`, `limit`, `before`); one with every attempt. |
 | POST | `/v1/deliveries/:id/redeliver`, `…/cancel` | write | New delivery of the same event (`202`); cancel a queued or retrying one. |
@@ -102,9 +102,15 @@ Error codes: `SUBSCRIPTION_NOT_FOUND`, `SUBSCRIPTION_EXISTS`, `EVENT_NOT_FOUND`,
 
 ```bash
 curl -s -X POST http://localhost:3009/v1/events \
-  -H "Authorization: Bearer $PUBLISH_KEY" -H "Content-Type: application/json" \
-  -d '{ "type": "order.paid", "data": { "orderId": 4821, "total": 349.9 }, "idempotencyKey": "order-4821-paid" }'
+  -H "Authorization: Bearer $PUBLISH_KEY" -H "Content-Type: application/json" -H "Idempotency-Key: order-4821-paid" \
+  -d '{ "type": "order.paid", "data": { "orderId": 4821, "total": 349.9 } }'
 ```
+
+## Conventions
+
+- Ids use the platform's one format: subscriptions `sub_…`, events `evt_…`, deliveries `dlv_…` (`<prefix>_<time><random>`; the delivery id is also the `x-webhook-delivery` header).
+- Lists answer `{ items, nextCursor }`; pass `nextCursor` back as `cursor`.
+- `POST /v1/events` deduplicates by the `Idempotency-Key` header for as long as the event is kept. Test, replay, redeliver and cancel honour `Idempotency-Key` with the platform's 24 h replay (per API key and caller). Subscription create and rotate answer with the signing secret and never replay.
 
 ## Examples
 

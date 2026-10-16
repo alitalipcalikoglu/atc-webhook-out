@@ -45,11 +45,11 @@ subscriber has been observed to dominate the queue.
 ## Checking a subscription's setting
 
 ```bash
-wcurl $WH/v1/subscriptions/sub_9f2c1a2b3c4d5e6f
+wcurl $WH/v1/subscriptions/sub_mgx1k2ab9f2c1a2b3c4d5e6f
 ```
 
 ```json
-{ "subscription": { "id": "sub_9f2c1a2b3c4d5e6f", "name": "ledger-sync", "ordered": true, "…": "…" } }
+{ "subscription": { "id": "sub_mgx1k2ab9f2c1a2b3c4d5e6f", "name": "ledger-sync", "ordered": true, "…": "…" } }
 ```
 
 `PATCH` toggles it like any other field: `{ "ordered": false }` turns ordering back off (existing

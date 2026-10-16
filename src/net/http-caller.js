@@ -28,7 +28,7 @@ export class HttpCaller {
   }
 
   /**
-   * @param {{ url: string, headers: Record<string, string>, secrets: string[], body: string, event: { id: string, type: string }, delivery: number, attempt: number, subscription: string }} call
+   * @param {{ url: string, headers: Record<string, string>, secrets: string[], body: string, event: { id: string, type: string }, delivery: string, attempt: number, subscription: string }} call
    * @returns {Promise<CallResult>} 2xx outcome; rejects with {@link CallError} otherwise.
    */
   async call({ url, headers: custom, secrets, body, event, delivery, attempt, subscription }) {

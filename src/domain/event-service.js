@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { Ids } from '@atc-web/atc-service-core/ids';
 import { WebhookError } from './errors.js';
 import { EventMatch } from './event-match.js';
 
@@ -164,7 +164,7 @@ export class EventService {
   }
 
   static newId() {
-    return `evt_${randomBytes(8).toString('hex')}`;
+    return Ids.create('evt');
   }
 
   /** @param {unknown} err */

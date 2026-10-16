@@ -25,7 +25,7 @@ test('Worker: delivery carries signature, ids, custom headers and the event body
   assert.equal(req.headers['x-tenant'], 'shop-1');
   assert.equal(req.headers['x-webhook-id'], event.id);
   assert.equal(req.headers['x-webhook-event'], 'order.paid');
-  assert.equal(req.headers['x-webhook-delivery'], String(d.id));
+  assert.equal(req.headers['x-webhook-delivery'], d.public_id);
   assert.equal(req.headers['x-webhook-attempt'], '1');
   assert.equal(req.headers['x-webhook-subscription'], sub.id);
   assert.equal(req.headers.authorization, undefined);

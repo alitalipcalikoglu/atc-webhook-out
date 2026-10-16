@@ -17,13 +17,13 @@ Failed at once: `3xx`, other `4xx`, a receiver on a private or blocked address, 
 ## Reading a delivery
 
 ```bash
-wcurl $WH/v1/deliveries/8412
+wcurl $WH/v1/deliveries/dlv_mgx1k2ab0123456789ab8412
 ```
 
 ```json
 {
   "delivery": {
-    "id": 8412, "eventId": "evt_5d1e…", "subscriptionId": "sub_9f2c…", "status": "retrying",
+    "id": "dlv_mgx1k2ab0123456789ab8412", "eventId": "evt_5d1e…", "subscriptionId": "sub_9f2c…", "status": "retrying",
     "attempt": 2, "maxAttempts": 7, "nextAttemptAt": "2026-09-17T10:06:02.310Z",
     "startedAt": "2026-09-17T10:01:01.001Z", "finishedAt": null, "durationMs": 15001,
     "httpStatus": null, "response": null, "error": "receiver timed out after 15000ms",
@@ -41,7 +41,7 @@ wcurl $WH/v1/deliveries/8412
 ## Cancel
 
 ```bash
-wcurl -X POST $WH/v1/deliveries/8412/cancel
+wcurl -X POST $WH/v1/deliveries/dlv_mgx1k2ab0123456789ab8412/cancel
 ```
 
 Works while `pending` or `retrying` (`200`, status `cancelled`); a running attempt cannot be interrupted (`409 DELIVERY_NOT_CANCELLABLE`).
@@ -51,7 +51,7 @@ Works while `pending` or `retrying` (`200`, status `cancelled`); a running attem
 After the receiver is fixed:
 
 ```bash
-wcurl -X POST $WH/v1/deliveries/8412/redeliver
+wcurl -X POST $WH/v1/deliveries/dlv_mgx1k2ab0123456789ab8412/redeliver
 ```
 
 `202` with a **new** delivery of the same event to the same subscriber, starting at attempt 1. The old row stays as history. The receiver sees the same `X-Webhook-Id` again.

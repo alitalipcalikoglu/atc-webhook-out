@@ -19,7 +19,7 @@ wcurl -X POST $WH/v1/subscriptions -d '{
 ```json
 {
   "subscription": {
-    "id": "sub_9f2c1a7e5b3d0c4e", "name": "kargocu-a", "description": "Shipping partner, production integration",
+    "id": "sub_mgx1k2ab9f2c1a7e5b3d0c4e", "name": "kargocu-a", "description": "Shipping partner, production integration",
     "url": "https://api.kargocu-a.example/hooks/orders", "events": ["order.cancelled", "order.paid"], "headers": { "x-tenant": "shop-1" },
     "status": "active", "consecutiveFailures": 0, "lastDeliveryAt": null, "lastStatus": null, "secretRotatedUntil": null,
     "createdBy": "atc-console", "createdAt": "2026-09-17T10:00:00.000Z", "updatedAt": "2026-09-17T10:00:00.000Z"
@@ -51,8 +51,8 @@ Up to 10 `X-*` headers, printable ASCII, sent with every delivery. `Authorizatio
 ## Pause and resume
 
 ```bash
-wcurl -X PATCH $WH/v1/subscriptions/sub_9f2c1a7e5b3d0c4e -d '{ "enabled": false }'   # status: paused
-wcurl -X PATCH $WH/v1/subscriptions/sub_9f2c1a7e5b3d0c4e -d '{ "enabled": true }'    # status: active
+wcurl -X PATCH $WH/v1/subscriptions/sub_mgx1k2ab9f2c1a7e5b3d0c4e -d '{ "enabled": false }'   # status: paused
+wcurl -X PATCH $WH/v1/subscriptions/sub_mgx1k2ab9f2c1a7e5b3d0c4e -d '{ "enabled": true }'    # status: active
 ```
 
 While paused (or automatically `disabled`, see [disable](disable.md)):
@@ -66,7 +66,7 @@ While paused (or automatically `disabled`, see [disable](disable.md)):
 ## Delete
 
 ```bash
-wcurl -X DELETE $WH/v1/subscriptions/sub_9f2c1a7e5b3d0c4e   # 204
+wcurl -X DELETE $WH/v1/subscriptions/sub_mgx1k2ab9f2c1a7e5b3d0c4e   # 204
 ```
 
 Deletes the subscriber and its delivery history. Pause instead to keep the history.

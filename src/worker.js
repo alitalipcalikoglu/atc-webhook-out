@@ -169,7 +169,7 @@ export class Worker {
       } else {
         try {
           const body = JSON.stringify({ id: event.id, type: event.type, createdAt: new Date(event.created_at).toISOString(), data: JSON.parse(event.data) });
-          const result = await this.caller.call({ url: sub.url, headers: JSON.parse(sub.headers), secrets: this.subscriptionService.signingSecrets(sub), body, event: { id: event.id, type: event.type }, delivery: d.id, attempt: d.attempt, subscription: sub.id });
+          const result = await this.caller.call({ url: sub.url, headers: JSON.parse(sub.headers), secrets: this.subscriptionService.signingSecrets(sub), body, event: { id: event.id, type: event.type }, delivery: d.public_id, attempt: d.attempt, subscription: sub.id });
           outcome = { startedAt, error: null, httpStatus: result.httpStatus, response: result.response, retryable: false };
         } catch (err) {
           const e = /** @type {{ message: string, httpStatus?: number|null, response?: string, retryable?: boolean }} */ (err);
@@ -213,7 +213,7 @@ export class Worker {
    * @param {number} now
    */
   #applyOutcome(d, status, now) {
-    const meta = { delivery: d.id, event: d.event_id, subscription: d.subscription_id, attempt: d.attempt, status, httpStatus: d.http_status, durationMs: d.duration_ms, nextAttemptAt: d.next_attempt_at };
+    const meta = { delivery: d.public_id, event: d.event_id, subscription: d.subscription_id, attempt: d.attempt, status, httpStatus: d.http_status, durationMs: d.duration_ms, nextAttemptAt: d.next_attempt_at };
     if (status === 'retrying') {
       this.counters.retried++;
       this.log.warn({ ...meta, error: d.error }, 'attempt failed, retry scheduled');

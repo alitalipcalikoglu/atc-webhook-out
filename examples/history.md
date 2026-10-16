@@ -8,7 +8,7 @@ wcurl "$WH/v1/events/evt_5d1e…"       # the event plus every delivery it produ
 wcurl $WH/v1/event-types              # distinct types with counts and last seen, for pickers
 ```
 
-Newest first; keyset pagination with `nextBefore` → `before`. Test events are excluded.
+Newest first; keyset pagination: pass `nextCursor` back as `cursor`. Test events are excluded.
 
 ## Deliveries
 
@@ -19,7 +19,7 @@ wcurl "$WH/v1/deliveries?event=evt_5d1e…"
 wcurl "$WH/v1/subscriptions/sub_9f2c…/deliveries"
 ```
 
-Filters: `status` (`pending`, `running`, `retrying`, `succeeded`, `failed`, `cancelled`), `subscription`, `event`. `limit` ≤ 200; `nextBefore` → `before`.
+Filters: `status` (`pending`, `running`, `retrying`, `succeeded`, `failed`, `cancelled`), `subscription`, `event`. `limit` ≤ 200; pass `nextCursor` back as `cursor`.
 
 ## Stats
 

@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { Ids } from '@atc-web/atc-service-core/ids';
 import { SecretBox } from '../crypto/secret-box.js';
 import { WebhookError } from './errors.js';
 import { EventMatch } from './event-match.js';
@@ -49,7 +49,7 @@ export class SubscriptionService {
     const secret = secretOverride ?? SecretBox.generate();
     /** @type {SubscriptionRow} */
     const row = {
-      id: `sub_${randomBytes(8).toString('hex')}`,
+      id: Ids.create('sub'),
       name: input.name,
       description: input.description ?? '',
       url: this.#url(input.url),

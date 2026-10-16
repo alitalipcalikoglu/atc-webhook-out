@@ -508,6 +508,7 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
         - name: id
           in: path
           required: true
@@ -552,6 +553,7 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
         - name: id
           in: path
           required: true
@@ -630,10 +632,10 @@ paths:
         - name: limit
           in: query
           schema: { $ref: '#/components/schemas/Limit' }
-        - name: before
+        - name: cursor
           in: query
           schema: { $ref: '#/components/schemas/IntIdString' }
-          description: Keyset pagination — the previous page's `nextBefore`.
+          description: Opaque `nextCursor` from the previous page.
         - name: subscription
           in: query
           schema: { $ref: '#/components/schemas/SubscriptionId' }
@@ -661,6 +663,8 @@ paths:
   /v1/events:
     post:
       operationId: atc-webhook-out.events.publish
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       summary: Publish an event
       description: |
         Inserts the event and fans it out to a `deliveries` row for every currently-active
@@ -668,8 +672,9 @@ paths:
         a `202` is a durability guarantee for every matching subscriber at the time of publish, not
         just an ack of receipt.
 
-        With `idempotencyKey`, a repeat publish from the same API key (`source`) and the same key
-        returns the **original** event and queues nothing new: `duplicate: true` and HTTP `200`
+        With an `Idempotency-Key` header, a repeat publish from the same API key (`source`) and the
+        same key returns the **original** event (for as long as the event is kept, with
+        `Idempotent-Replayed: true`) and queues nothing new: `duplicate: true` and HTTP `200`
         instead of `202`. `deliveries` in the response is always an integer **count** of the
         deliveries created (or, for a duplicate, already existing) for this event — never an array
         of delivery objects.
@@ -691,10 +696,6 @@ paths:
                   $ref: '#/components/schemas/EventType'
                 data:
                   description: Arbitrary JSON payload, stored and echoed back as-is. Defaults to `null`.
-                idempotencyKey:
-                  type: string
-                  minLength: 1
-                  maxLength: 128
       responses:
         '202':
           description: New event, accepted and queued.
@@ -703,7 +704,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/EventPublishResult'
               example:
-                event: { id: evt_1a2b3c4d5e6f7081, type: order.paid, data: { orderId: 42 }, idempotencyKey: null, source: key_publisher, test: false, createdAt: '2026-09-18T10:00:00.000Z' }
+                event: { id: evt_mgx1k2ab1a2b3c4d5e6f7081, type: order.paid, data: { orderId: 42 }, idempotencyKey: null, source: key_publisher, test: false, createdAt: '2026-09-18T10:00:00.000Z' }
                 deliveries: 3
                 duplicate: false
         '200':
@@ -713,7 +714,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/EventPublishResult'
               example:
-                event: { id: evt_1a2b3c4d5e6f7081, type: order.paid, data: { orderId: 42 }, idempotencyKey: order-42-paid, source: key_publisher, test: false, createdAt: '2026-09-18T10:00:00.000Z' }
+                event: { id: evt_mgx1k2ab1a2b3c4d5e6f7081, type: order.paid, data: { orderId: 42 }, idempotencyKey: order-42-paid, source: key_publisher, test: false, createdAt: '2026-09-18T10:00:00.000Z' }
                 deliveries: 3
                 duplicate: true
         '400':
@@ -761,10 +762,10 @@ paths:
         - name: limit
           in: query
           schema: { $ref: '#/components/schemas/Limit' }
-        - name: before
+        - name: cursor
           in: query
           schema: { $ref: '#/components/schemas/IntIdString' }
-          description: Keyset pagination on the internal event sequence — the previous page's `nextBefore`.
+          description: Opaque `nextCursor` from the previous page.
       responses:
         '200':
           description: OK
@@ -772,13 +773,13 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [items, nextBefore]
+                required: [items, nextCursor]
                 properties:
                   items:
                     type: array
                     items:
                       $ref: '#/components/schemas/Event'
-                  nextBefore:
+                  nextCursor:
                     type: [string, 'null']
         '400':
           $ref: '#/components/responses/ValidationFailed'
@@ -846,7 +847,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [items]
+                required: [items, nextCursor]
                 properties:
                   items:
                     type: array
@@ -857,6 +858,7 @@ paths:
                         type: { type: string }
                         count: { type: integer, minimum: 0 }
                         lastAt: { type: string, format: date-time }
+                  nextCursor: { type: 'null', description: Always null; the list is complete. }
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -886,10 +888,10 @@ paths:
         - name: limit
           in: query
           schema: { $ref: '#/components/schemas/Limit' }
-        - name: before
+        - name: cursor
           in: query
           schema: { $ref: '#/components/schemas/IntIdString' }
-          description: Keyset pagination — the previous page's `nextBefore`.
+          description: Opaque `nextCursor` from the previous page.
       responses:
         '200':
           description: OK
@@ -919,7 +921,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { $ref: '#/components/schemas/IntIdString' }
+          schema: { $ref: '#/components/schemas/DeliveryId' }
       responses:
         '200':
           description: OK
@@ -956,10 +958,11 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
         - name: id
           in: path
           required: true
-          schema: { $ref: '#/components/schemas/IntIdString' }
+          schema: { $ref: '#/components/schemas/DeliveryId' }
       responses:
         '202':
           description: Accepted and queued.
@@ -992,10 +995,11 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
         - name: id
           in: path
           required: true
-          schema: { $ref: '#/components/schemas/IntIdString' }
+          schema: { $ref: '#/components/schemas/DeliveryId' }
       responses:
         '200':
           description: Cancelled.
@@ -1044,6 +1048,13 @@ paths:
           $ref: '#/components/responses/RateLimited'
 
 components:
+  parameters:
+    IdempotencyKeyHeader:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: "Optional. Repeats of this POST with the same key (per API key, 24 h) replay the first 2xx answer with `Idempotent-Replayed: true` instead of running again; the same key with another method, path or body is `409 IDEMPOTENCY_MISMATCH`, while the first still runs `409 IDEMPOTENCY_IN_PROGRESS`."
+      schema: { type: string, pattern: '^[A-Za-z0-9._:-]{8,255}$' }
   securitySchemes:
     ApiKeyAuth:
       type: http
@@ -1070,12 +1081,16 @@ components:
 
     SubscriptionId:
       type: string
-      pattern: '^sub_[0-9a-f]{16}$'
+      pattern: '^sub_[0-9a-z]{6,12}[0-9a-f]{16}$'
 
     EventId:
       type: string
-      pattern: '^evt_[0-9a-f]{16}$'
+      pattern: '^evt_[0-9a-z]{6,12}[0-9a-f]{16}$'
 
+    DeliveryId:
+      type: string
+      pattern: '^dlv_[0-9a-z]{6,12}[0-9a-f]{16}$'
+      description: The platform's one id format; also sent to receivers as `x-webhook-delivery`.
     IntIdString:
       type: string
       pattern: '^[1-9][0-9]{0,15}$'
@@ -1297,7 +1312,7 @@ components:
           description: Count of deliveries created (new publish) or already existing (idempotent duplicate) for this event. An integer count, never an array of delivery objects.
         duplicate:
           type: boolean
-          description: True when this call matched an existing `idempotencyKey` from the same API key and returned the original event instead of publishing a new one.
+          description: True when this call matched an existing `Idempotency-Key` from the same API key and returned the original event instead of publishing a new one.
 
     Attempt:
       type: object
@@ -1322,7 +1337,7 @@ components:
       required: [id, eventId, subscriptionId, status, attempt, maxAttempts, nextAttemptAt, startedAt, finishedAt, durationMs, httpStatus, response, error, attempts, createdAt]
       properties:
         id:
-          type: integer
+          $ref: '#/components/schemas/DeliveryId'
         eventId:
           $ref: '#/components/schemas/EventId'
         subscriptionId:
@@ -1365,13 +1380,13 @@ components:
 
     DeliveryListResponse:
       type: object
-      required: [items, nextBefore]
+      required: [items, nextCursor]
       properties:
         items:
           type: array
           items:
             $ref: '#/components/schemas/Delivery'
-        nextBefore:
+        nextCursor:
           type: [string, 'null']
           description: Keyset pagination cursor (a delivery id as a string) — pass as `before` to fetch the next page. `null` on the last page.
 
