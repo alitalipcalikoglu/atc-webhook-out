@@ -199,6 +199,10 @@ bounds.
   surfacing as an unhandled `500`.
 - **`POST /v1/events` without `idempotencyKey`**: not idempotent — every call creates a new event
   and new deliveries.
+- **Management POSTs** (`/v1/subscriptions/:id/test`, `/v1/subscriptions/:id/replay`,
+  `/v1/deliveries/:id/redeliver`, `/v1/deliveries/:id/cancel`) accept an optional `Idempotency-Key`
+  header (`@atc-web/atc-service-core/idempotency`, v1.30): a repeat with the same key, caller and
+  body replays the stored 2xx answer with `Idempotent-Replayed: true` and queues nothing twice.
 - **Delivery attempts / retries**: not idempotent from the subscriber's point of view. A delivery
   interrupted by a crash after the subscriber actually received it, but before `atc-webhook-out`
   recorded success, is retried as a fresh attempt on restart; a receiver that already saw the same
